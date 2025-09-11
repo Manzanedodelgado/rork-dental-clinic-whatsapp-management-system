@@ -1,0 +1,93 @@
+export interface Patient {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  lastVisit?: string;
+  nextAppointment?: string;
+  notes?: string;
+  avatar?: string;
+  appointments: Appointment[];
+}
+
+export interface Appointment {
+  id: string;
+  patientId: string;
+  patientName: string;
+  date: string;
+  time: string;
+  treatment: string;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+  notes?: string;
+  duration?: number;
+  dentist?: string;
+  startDateTime?: string;
+  endDateTime?: string;
+}
+
+export interface GoogleSheetsAppointment {
+  Registro: string;
+  CitMod: string;
+  FechaAlta: string;
+  NumPac: string;
+  Apellidos: string;
+  Nombre: string;
+  TelMovil: string;
+  Fecha: string;
+  Hora: string;
+  EstadoCita: string;
+  Tratamiento: string;
+  Odontologo: string;
+  Notas: string;
+  Duracion: string;
+  FechaHoraIni: string;
+  FechaHoraFin: string;
+}
+
+export interface WhatsAppMessage {
+  id: string;
+  patientId: string;
+  content: string;
+  timestamp: string;
+  isFromPatient: boolean;
+  isRead: boolean;
+  messageType: 'text' | 'image' | 'document';
+}
+
+export interface WhatsAppConversation {
+  id: string;
+  patient: Patient;
+  lastMessage: WhatsAppMessage;
+  unreadCount: number;
+  isActive: boolean;
+}
+
+export interface MessageTemplate {
+  id: string;
+  name: string;
+  content: string;
+  category: 'reminder' | 'confirmation' | 'consent' | 'general';
+  variables: string[];
+}
+
+export interface Automation {
+  id: string;
+  name: string;
+  trigger: 'appointment_reminder' | 'post_treatment' | 'birthday' | 'manual';
+  templateId: string;
+  timing: string;
+  isActive: boolean;
+  conditions?: any;
+}
+
+export interface AIConfig {
+  isEnabled: boolean;
+  personality: string;
+  knowledgeBase: string[];
+  autoReplyEnabled: boolean;
+  workingHours: {
+    start: string;
+    end: string;
+    days: string[];
+  };
+}
