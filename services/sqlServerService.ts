@@ -130,7 +130,12 @@ export class SQLServerService {
       } catch (fileError) {
         console.warn('⚠️ Archivo local no disponible, usando datos simulados mejorados...', fileError);
         
-        // Fallback a datos simulados más realistas
+        // Fallback a datos simulados más realistas con fechas actuales
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        const tomorrowStr = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dayAfterStr = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
         const mockSQLData: SQLServerAppointment[] = [
           {
             Registro: '1001',
@@ -140,10 +145,10 @@ export class SQLServerService {
             Apellidos: 'García López',
             Nombre: 'María',
             TelMovil: '+34 666 123 456',
-            Fecha: '2025-01-15',
+            Fecha: todayStr,
             Hora: '09:00',
             EstadoCita: 'Planificada',
-            Tratamiento: 'Revision',
+            Tratamiento: 'Revisión',
             Odontologo: 'Dr. Mario Rubio',
             Notas: 'Primera visita del año - Revisión general'
           },
@@ -155,7 +160,7 @@ export class SQLServerService {
             Apellidos: 'Ruiz Martín',
             Nombre: 'Carlos',
             TelMovil: '+34 677 234 567',
-            Fecha: '2025-01-16',
+            Fecha: todayStr,
             Hora: '10:30',
             EstadoCita: 'Confirmada',
             Tratamiento: 'Ortodoncia',
@@ -170,7 +175,7 @@ export class SQLServerService {
             Apellidos: 'Martín Sánchez',
             Nombre: 'Ana',
             TelMovil: '+34 688 345 678',
-            Fecha: '2025-01-17',
+            Fecha: tomorrowStr,
             Hora: '11:00',
             EstadoCita: 'Planificada',
             Tratamiento: 'Higiene dental',
@@ -185,10 +190,10 @@ export class SQLServerService {
             Apellidos: 'López Fernández',
             Nombre: 'Juan',
             TelMovil: '+34 699 456 789',
-            Fecha: '2025-01-18',
+            Fecha: dayAfterStr,
             Hora: '16:00',
             EstadoCita: 'Planificada',
-            Tratamiento: 'Cirugia Implantes',
+            Tratamiento: 'Cirugía Implantes',
             Odontologo: 'Dr. Juan Antonio Manzanedo',
             Notas: 'Colocación de implante molar inferior'
           },
@@ -200,7 +205,7 @@ export class SQLServerService {
             Apellidos: 'Rodríguez Pérez',
             Nombre: 'Elena',
             TelMovil: '+34 611 789 123',
-            Fecha: '2025-01-19',
+            Fecha: '2025-01-15',
             Hora: '12:30',
             EstadoCita: 'Confirmada',
             Tratamiento: 'Periodoncia',
@@ -211,6 +216,7 @@ export class SQLServerService {
         
         await new Promise(resolve => setTimeout(resolve, 500));
         console.log(`📋 Usando datos simulados mejorados: ${mockSQLData.length} registros`);
+        console.log(`📅 Citas para hoy (${todayStr}): ${mockSQLData.filter(apt => apt.Fecha === todayStr).length}`);
         console.log('💡 Para usar datos reales, inicie el backend con: node backend-server.js');
         console.log('💡 O ejecute el script Python: python sql_sync_robust.py');
         

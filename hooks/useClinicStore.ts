@@ -261,8 +261,8 @@ const mockPatients: Patient[] = [
     name: 'María González',
     phone: '+34 666 123 456',
     email: 'maria.gonzalez@email.com',
-    lastVisit: '2024-01-10',
-    nextAppointment: '2024-01-15',
+    lastVisit: '2025-01-10',
+    nextAppointment: '2025-01-15',
     notes: 'Paciente con implante en molar superior derecho',
     appointments: []
   },
@@ -271,8 +271,8 @@ const mockPatients: Patient[] = [
     name: 'Carlos Ruiz',
     phone: '+34 677 234 567',
     email: 'carlos.ruiz@email.com',
-    lastVisit: '2024-01-08',
-    nextAppointment: '2024-01-16',
+    lastVisit: '2025-01-08',
+    nextAppointment: '2025-01-16',
     notes: 'Tratamiento de ortodoncia invisible',
     appointments: []
   },
@@ -281,7 +281,7 @@ const mockPatients: Patient[] = [
     name: 'Ana Martín',
     phone: '+34 688 345 678',
     email: 'ana.martin@email.com',
-    lastVisit: '2024-01-05',
+    lastVisit: '2025-01-05',
     notes: 'Limpieza dental y revisión',
     appointments: []
   }
@@ -292,7 +292,7 @@ const mockAppointments: Appointment[] = [
     id: '1',
     patientId: '1',
     patientName: 'María González',
-    date: '2024-01-15',
+    date: '2025-01-11',
     time: '09:00',
     treatment: 'Revisión implante',
     status: 'scheduled'
@@ -301,7 +301,7 @@ const mockAppointments: Appointment[] = [
     id: '2',
     patientId: '2',
     patientName: 'Carlos Ruiz',
-    date: '2024-01-15',
+    date: '2025-01-11',
     time: '10:30',
     treatment: 'Ajuste ortodoncia',
     status: 'scheduled'
@@ -310,9 +310,27 @@ const mockAppointments: Appointment[] = [
     id: '3',
     patientId: '3',
     patientName: 'Ana Martín',
-    date: '2024-01-16',
+    date: '2025-01-12',
     time: '11:00',
     treatment: 'Limpieza dental',
+    status: 'scheduled'
+  },
+  {
+    id: '4',
+    patientId: '1',
+    patientName: 'María González',
+    date: '2025-01-15',
+    time: '14:00',
+    treatment: 'Control post-implante',
+    status: 'scheduled'
+  },
+  {
+    id: '5',
+    patientId: '2',
+    patientName: 'Carlos Ruiz',
+    date: '2025-01-16',
+    time: '16:30',
+    treatment: 'Revisión ortodoncia',
     status: 'scheduled'
   }
 ];

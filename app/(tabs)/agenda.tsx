@@ -79,14 +79,17 @@ export default function AgendaScreen() {
     }
   }, [isLoading, appointments.length, syncNow]);
 
-  // Generate calendar days for current month
+  // Generate calendar days for current month (starting Monday)
   const calendarDays = useMemo(() => {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     const firstDay = new Date(year, month, 1);
 
+    // Calculate start date (Monday of the week containing the 1st)
     const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    const dayOfWeek = firstDay.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Monday = 0 days to subtract
+    startDate.setDate(firstDay.getDate() - daysToSubtract);
     
     const days: CalendarDay[] = [];
     const today = new Date().toISOString().split('T')[0];
@@ -193,7 +196,9 @@ export default function AgendaScreen() {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString + 'T00:00:00');
+    // Parse date correctly to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
     return date.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
@@ -261,9 +266,9 @@ export default function AgendaScreen() {
 
         {/* Modern Calendar Grid */}
         <View style={styles.calendar}>
-          {/* Week days header */}
+          {/* Week days header - Starting with Monday */}
           <View style={styles.weekDaysHeader}>
-            {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((day) => (
+            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
               <View key={day} style={styles.weekDayContainer}>
                 <Text style={styles.weekDayText}>{day}</Text>
               </View>
@@ -642,10 +647,10 @@ const styles = StyleSheet.create({
   },
   calendar: {
     backgroundColor: Colors.light.surface,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 16,
-    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -654,14 +659,14 @@ const styles = StyleSheet.create({
   },
   weekDaysHeader: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   weekDayContainer: {
     flex: 1,
     alignItems: 'center',
   },
   weekDayText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
     color: Colors.light.tabIconDefault,
     textTransform: 'uppercase',
@@ -672,12 +677,12 @@ const styles = StyleSheet.create({
   },
   calendarDay: {
     width: '14.28%',
-    aspectRatio: 1,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 8,
-    borderRadius: 12,
+    marginBottom: 4,
+    borderRadius: 8,
   },
   calendarDayInactive: {
     opacity: 0.3,
@@ -699,7 +704,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.accent + '10',
   },
   calendarDayText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: Colors.light.text,
   },
@@ -716,16 +721,16 @@ const styles = StyleSheet.create({
   },
   appointmentIndicator: {
     position: 'absolute',
-    bottom: 4,
+    bottom: 2,
     alignSelf: 'center',
   },
   appointmentIndicatorSelected: {
-    bottom: 6,
+    bottom: 3,
   },
   appointmentDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 4,
+    height: 4,
+    borderRadius: 2,
     backgroundColor: Colors.light.accent,
   },
   selectedDateSection: {
