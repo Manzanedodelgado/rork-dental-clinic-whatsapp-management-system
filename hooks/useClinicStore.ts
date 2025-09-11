@@ -197,7 +197,15 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
 
   const todayAppointments = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
-    return appointments.filter(apt => apt.date === today);
+    console.log('Filtering appointments for today:', today);
+    console.log('Available appointments:', appointments.map(apt => ({ id: apt.id, date: apt.date, patient: apt.patientName })));
+    const filtered = appointments.filter(apt => {
+      const aptDate = apt.date;
+      console.log(`Comparing appointment date '${aptDate}' with today '${today}'`);
+      return aptDate === today;
+    });
+    console.log('Today\'s appointments:', filtered);
+    return filtered;
   }, [appointments]);
 
   const unreadMessagesCount = useMemo(() => {
@@ -287,53 +295,75 @@ const mockPatients: Patient[] = [
   }
 ];
 
-const mockAppointments: Appointment[] = [
-  {
-    id: '1',
-    patientId: '1',
-    patientName: 'María González',
-    date: '2025-01-11',
-    time: '09:00',
-    treatment: 'Revisión implante',
-    status: 'scheduled'
-  },
-  {
-    id: '2',
-    patientId: '2',
-    patientName: 'Carlos Ruiz',
-    date: '2025-01-11',
-    time: '10:30',
-    treatment: 'Ajuste ortodoncia',
-    status: 'scheduled'
-  },
-  {
-    id: '3',
-    patientId: '3',
-    patientName: 'Ana Martín',
-    date: '2025-01-12',
-    time: '11:00',
-    treatment: 'Limpieza dental',
-    status: 'scheduled'
-  },
-  {
-    id: '4',
-    patientId: '1',
-    patientName: 'María González',
-    date: '2025-01-15',
-    time: '14:00',
-    treatment: 'Control post-implante',
-    status: 'scheduled'
-  },
-  {
-    id: '5',
-    patientId: '2',
-    patientName: 'Carlos Ruiz',
-    date: '2025-01-16',
-    time: '16:30',
-    treatment: 'Revisión ortodoncia',
-    status: 'scheduled'
-  }
-];
+// Generate mock appointments with current dates
+const generateMockAppointments = (): Appointment[] => {
+  const today = new Date();
+  const todayStr = today.toISOString().split('T')[0];
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toISOString().split('T')[0];
+  const dayAfter = new Date(today);
+  dayAfter.setDate(dayAfter.getDate() + 2);
+  const dayAfterStr = dayAfter.toISOString().split('T')[0];
+  
+  return [
+    {
+      id: '1',
+      patientId: '1',
+      patientName: 'María González',
+      date: todayStr,
+      time: '09:00',
+      treatment: 'Revisión implante',
+      status: 'scheduled',
+      dentist: 'Mario Rubio',
+      notes: 'Control post-implante'
+    },
+    {
+      id: '2',
+      patientId: '2',
+      patientName: 'Carlos Ruiz',
+      date: todayStr,
+      time: '10:30',
+      treatment: 'Ajuste ortodoncia',
+      status: 'scheduled',
+      dentist: 'Irene Garcia',
+      notes: 'Ajuste mensual de brackets'
+    },
+    {
+      id: '3',
+      patientId: '3',
+      patientName: 'Ana Martín',
+      date: tomorrowStr,
+      time: '11:00',
+      treatment: 'Limpieza dental',
+      status: 'scheduled',
+      dentist: 'Virginia Tresgallo',
+      notes: 'Limpieza semestral'
+    },
+    {
+      id: '4',
+      patientId: '1',
+      patientName: 'María González',
+      date: dayAfterStr,
+      time: '14:00',
+      treatment: 'Control post-implante',
+      status: 'scheduled',
+      dentist: 'Mario Rubio'
+    },
+    {
+      id: '5',
+      patientId: '2',
+      patientName: 'Carlos Ruiz',
+      date: '2025-09-15',
+      time: '16:30',
+      treatment: 'Revisión ortodoncia',
+      status: 'scheduled',
+      dentist: 'Irene Garcia'
+    }
+  ];
+};
+
+const mockAppointments: Appointment[] = generateMockAppointments();
 
 const mockConversations: WhatsAppConversation[] = [
   {

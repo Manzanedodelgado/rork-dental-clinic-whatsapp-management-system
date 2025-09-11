@@ -207,6 +207,22 @@ export default function AgendaScreen() {
     });
   };
 
+  const formatSelectedDate = (dateString: string) => {
+    // Parse date correctly to avoid timezone issues
+    const [year, month, day] = dateString.split('-').map(Number);
+    const date = new Date(year, month - 1, day); // month is 0-indexed
+    
+    // Get day names in Spanish
+    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+    
+    const dayName = dayNames[date.getDay()];
+    const monthName = monthNames[date.getMonth()];
+    
+    return `${dayName}, ${day} De ${monthName} De ${year}`;
+  };
+
   const getStatusColor = (status: Appointment['status']) => {
     return APPOINTMENT_STATUSES.find(s => s.key === status)?.color || Colors.light.primary;
   };
@@ -320,7 +336,7 @@ export default function AgendaScreen() {
         <View style={styles.selectedDateSection}>
           <View style={styles.selectedDateHeader}>
             <Text style={styles.selectedDateTitle}>
-              {formatDate(selectedDate)}
+              {formatSelectedDate(selectedDate)}
             </Text>
             <TouchableOpacity
               style={styles.addButton}
@@ -650,7 +666,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginBottom: 16,
     borderRadius: 12,
-    padding: 16,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -659,14 +675,14 @@ const styles = StyleSheet.create({
   },
   weekDaysHeader: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   weekDayContainer: {
     flex: 1,
     alignItems: 'center',
   },
   weekDayText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: Colors.light.tabIconDefault,
     textTransform: 'uppercase',
@@ -677,12 +693,12 @@ const styles = StyleSheet.create({
   },
   calendarDay: {
     width: '14.28%',
-    height: 32,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 4,
-    borderRadius: 8,
+    marginBottom: 2,
+    borderRadius: 6,
   },
   calendarDayInactive: {
     opacity: 0.3,
@@ -704,7 +720,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.accent + '10',
   },
   calendarDayText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     color: Colors.light.text,
   },

@@ -44,9 +44,23 @@ export default function HomeScreen() {
     isSyncing,
     syncNow,
     newAppointments,
-    updatedAppointments,
-    syncStats
+    updatedAppointments
   } = useClinic();
+  
+  const [syncStatsData, setSyncStatsData] = useState<{ totalAppointments: number }>({ totalAppointments: 0 });
+  
+  // Get sync stats
+  React.useEffect(() => {
+    const getSyncStats = async () => {
+      try {
+        const stats = await SQLServerService.getSyncStats();
+        setSyncStatsData({ totalAppointments: stats.totalAppointments });
+      } catch (error) {
+        console.error('Error getting sync stats:', error);
+      }
+    };
+    getSyncStats();
+  }, []);
 
   const handleVerifySync = async () => {
     setIsVerifying(true);
@@ -174,7 +188,7 @@ export default function HomeScreen() {
             <View style={styles.connectionStatus}>
               <Database color={Colors.light.primary} size={16} />
               <Text style={styles.connectionText}>
-                SQL Server - {syncStats.totalAppointments} registros
+                SQL Server - {syncStatsData.totalAppointments} registros
               </Text>
               {isConnected ? (
                 <CheckCircle color={Colors.light.success} size={14} style={styles.connectionIcon} />
@@ -287,6 +301,9 @@ export default function HomeScreen() {
             <View style={styles.emptyState}>
               <Calendar color={Colors.light.textSecondary} size={48} />
               <Text style={styles.emptyStateText}>No hay citas programadas para hoy</Text>
+              <Text style={styles.emptyStateSubtext}>
+                {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </Text>
             </View>
           ) : (
             <View style={styles.appointmentsList}>
@@ -294,11 +311,14 @@ export default function HomeScreen() {
                 <TouchableOpacity key={appointment.id} style={styles.appointmentCard}>
                   <View style={styles.appointmentTime}>
                     <Clock color={Colors.light.primary} size={16} />
-                    <Text style={styles.appointmentTimeText}>{appointment.time}</Text>
+                    <Text style={styles.appointmentTimeText}>{appointment.time || 'Sin hora'}</Text>
                   </View>
                   <View style={styles.appointmentDetails}>
                     <Text style={styles.appointmentPatient}>{appointment.patientName}</Text>
                     <Text style={styles.appointmentTreatment}>{appointment.treatment}</Text>
+                    {appointment.dentist && (
+                      <Text style={styles.appointmentDentist}>Dr. {appointment.dentist}</Text>
+                    )}
                   </View>
                   <View style={[styles.appointmentStatus, 
                     { backgroundColor: getStatusColor(appointment.status) + '20' }]}>
@@ -583,6 +603,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     textAlign: 'center',
   },
+  emptyStateSubtext: {
+    fontSize: 12,
+    color: Colors.light.tabIconDefault,
+    marginTop: 4,
+    textAlign: 'center',
+  },
   appointmentsList: {
     gap: 12,
   },
@@ -621,6 +647,12 @@ const styles = StyleSheet.create({
   appointmentTreatment: {
     fontSize: 14,
     color: Colors.light.textSecondary,
+  },
+  appointmentDentist: {
+    fontSize: 12,
+    color: Colors.light.primary,
+    fontWeight: '500',
+    marginTop: 2,
   },
   appointmentStatus: {
     paddingHorizontal: 8,
