@@ -21,6 +21,11 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
     queryFn: async () => {
       try {
         console.log('🔄 Starting SQL Server sync...');
+        
+        // First test the backend connection
+        const isBackendAvailable = await SQLServerService.testConnection();
+        console.log('🔌 Backend available:', isBackendAvailable);
+        
         const data = await SQLServerService.fetchAppointments();
         
         console.log('📦 Sync completed successfully:');
@@ -34,6 +39,20 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
           data.appointments.slice(0, 3).forEach((apt, index) => {
             console.log(`   ${index + 1}. ${apt.patientName} - ${apt.date} ${apt.time} (${apt.treatment})`);
           });
+        } else {
+          console.warn('⚠️ No appointments returned from backend!');
+          console.log('🔍 Checking backend status...');
+          
+          // Try to get more info about the backend
+          try {
+            const response = await fetch('http://localhost:3001/api/health');
+            if (response.ok) {
+              const health = await response.json();
+              console.log('📊 Backend health:', health);
+            }
+          } catch (healthError) {
+            console.error('❌ Backend health check failed:', healthError);
+          }
         }
         
         setLastSyncTime(new Date());
@@ -42,15 +61,23 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
         return data;
       } catch (error) {
         console.error('❌ SQL Server sync error:', error);
-        setSyncError(error instanceof Error ? error.message : 'Error de sincronización');
-        throw error;
+        const errorMessage = error instanceof Error ? error.message : 'Error de sincronización';
+        setSyncError(errorMessage);
+        
+        // Return empty data instead of throwing to prevent infinite retries
+        return {
+          appointments: [],
+          patients: [],
+          newAppointments: [],
+          updatedAppointments: []
+        };
       }
     },
     refetchInterval: 5 * 60 * 1000, // 5 minutes
     refetchIntervalInBackground: true,
     staleTime: 4 * 60 * 1000, // 4 minutes
-    retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    retry: 2, // Reduce retries
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
   });
 
   // WhatsApp Conversations Query (local storage)
@@ -220,6 +247,10 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
       appointments.slice(0, 5).forEach((apt, index) => {
         console.log(`   ${index + 1}. ID: ${apt.id}, Date: ${apt.date}, Patient: ${apt.patientName}, Time: ${apt.time}`);
       });
+    } else {
+      console.warn('⚠️ No appointments available for filtering!');
+      console.log('🔍 Checking if backend is running...');
+      console.log('📝 Make sure backend-server.js is running on port 3001');
     }
     
     const filtered = appointments.filter(apt => {
@@ -262,6 +293,14 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
       console.log('🚨 No appointments found for today. Checking all dates:');
       const uniqueDates = [...new Set(appointments.map(apt => apt.date).filter(Boolean))];
       console.log('   Available dates:', uniqueDates);
+      
+      if (uniqueDates.length === 0) {
+        console.error('🚨 CRITICAL: No appointments with valid dates found!');
+        console.log('🔧 Troubleshooting steps:');
+        console.log('   1. Check if backend-server.js is running');
+        console.log('   2. Verify SQL Server connection');
+        console.log('   3. Check if database has appointment data');
+      }
     }
     
     return filtered;
@@ -315,7 +354,19 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
     setSelectedConversation,
     syncNow: () => {
       console.log('🔄 Sync button pressed - triggering manual sync');
-      syncMutation.mutate();
+      console.log('🔌 Testing backend connection first...');
+      
+      // Test connection before syncing
+      SQLServerService.testConnection().then(isAvailable => {
+        console.log('🔌 Backend connection test result:', isAvailable);
+        if (!isAvailable) {
+          console.warn('⚠️ Backend not available, sync may use mock data');
+        }
+        syncMutation.mutate();
+      }).catch(error => {
+        console.error('❌ Connection test failed:', error);
+        syncMutation.mutate(); // Still try to sync
+      });
     },
     updateConversations: updateConversationsMutation.mutate,
     updateTemplates: updateTemplatesMutation.mutate,

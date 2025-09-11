@@ -97,6 +97,7 @@ export default function AgendaScreen() {
     
     console.log('📅 Generating calendar for:', currentMonth.toLocaleDateString('es-ES'));
     console.log('📅 Today is:', todayStr);
+    console.log('📅 Total appointments available:', appointments.length);
     
     for (let i = 0; i < 42; i++) {
       const date = new Date(startDate);
@@ -119,7 +120,11 @@ export default function AgendaScreen() {
           }
         }
         
-        return aptDate === dateString;
+        const matches = aptDate === dateString;
+        if (matches) {
+          console.log(`📅 Found appointment for ${dateString}: ${apt.patientName} at ${apt.time}`);
+        }
+        return matches;
       });
       
       days.push({
@@ -251,7 +256,7 @@ export default function AgendaScreen() {
       const dayName = dayNames[date.getDay()];
       const monthName = monthNames[date.getMonth()];
       
-      const formatted = `${dayName}, ${day} De ${monthName} De ${year}`;
+      const formatted = `${dayName}, ${day} de ${monthName} de ${year}`;
       console.log('🗓️ Formatted date:', formatted);
       
       return formatted;
@@ -322,7 +327,7 @@ export default function AgendaScreen() {
         <View style={styles.calendar}>
           {/* Week days header - Starting with Monday */}
           <View style={styles.weekDaysHeader}>
-            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+            {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((day) => (
               <View key={day} style={styles.weekDayContainer}>
                 <Text style={styles.weekDayText}>{day}</Text>
               </View>
@@ -720,7 +725,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weekDayText: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: Colors.light.tabIconDefault,
     textTransform: 'uppercase',
@@ -731,12 +736,12 @@ const styles = StyleSheet.create({
   },
   calendarDay: {
     width: '14.28%',
-    height: 32,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 2,
-    borderRadius: 6,
+    marginBottom: 1,
+    borderRadius: 4,
   },
   calendarDayInactive: {
     opacity: 0.3,
@@ -758,7 +763,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.accent + '10',
   },
   calendarDayText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     color: Colors.light.text,
   },
