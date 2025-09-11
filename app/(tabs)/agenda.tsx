@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weekDayText: {
-    fontSize: 9,
+    fontSize: 11,
     fontWeight: '600',
     color: Colors.light.tabIconDefault,
     textTransform: 'uppercase',
@@ -731,12 +731,12 @@ const styles = StyleSheet.create({
   },
   calendarDay: {
     width: '14.28%',
-    height: 24,
+    height: 32,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 1,
-    borderRadius: 4,
+    marginBottom: 2,
+    borderRadius: 6,
   },
   calendarDayInactive: {
     opacity: 0.3,
@@ -758,7 +758,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.accent + '10',
   },
   calendarDayText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '500',
     color: Colors.light.text,
   },

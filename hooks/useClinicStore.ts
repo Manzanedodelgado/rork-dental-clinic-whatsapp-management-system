@@ -20,22 +20,28 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
     queryKey: ['sqlServer'],
     queryFn: async () => {
       try {
-        console.log('Syncing with SQL Server...');
+        console.log('🔄 Starting SQL Server sync...');
         const data = await SQLServerService.fetchAppointments();
+        
+        console.log('📦 Sync completed successfully:');
+        console.log(`   📋 Total appointments: ${data.appointments.length}`);
+        console.log(`   🆕 New appointments: ${data.newAppointments.length}`);
+        console.log(`   🔄 Updated appointments: ${data.updatedAppointments.length}`);
+        console.log(`   👥 Patients: ${data.patients.length}`);
+        
+        if (data.appointments.length > 0) {
+          console.log('📋 Sample appointments from sync:');
+          data.appointments.slice(0, 3).forEach((apt, index) => {
+            console.log(`   ${index + 1}. ${apt.patientName} - ${apt.date} ${apt.time} (${apt.treatment})`);
+          });
+        }
+        
         setLastSyncTime(new Date());
         setSyncError(null);
         
-        // Log new and updated appointments
-        if (data.newAppointments.length > 0) {
-          console.log(`${data.newAppointments.length} new appointments detected`);
-        }
-        if (data.updatedAppointments.length > 0) {
-          console.log(`${data.updatedAppointments.length} appointments updated`);
-        }
-        
         return data;
       } catch (error) {
-        console.error('SQL Server sync error:', error);
+        console.error('❌ SQL Server sync error:', error);
         setSyncError(error instanceof Error ? error.message : 'Error de sincronización');
         throw error;
       }
@@ -106,26 +112,23 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
   // Manual sync mutation
   const syncMutation = useMutation({
     mutationFn: async () => {
+      console.log('🔄 Manual sync initiated...');
       return await SQLServerService.fetchAppointments();
     },
     onSuccess: (data) => {
       if (data) {
+        console.log('✅ Manual sync successful:');
+        console.log(`   📋 Appointments: ${data.appointments.length}`);
+        console.log(`   🆕 New: ${data.newAppointments.length}`);
+        console.log(`   🔄 Updated: ${data.updatedAppointments.length}`);
+        
         queryClient.setQueryData(['sqlServer'], data);
         setLastSyncTime(new Date());
         setSyncError(null);
-        
-        // Log sync results
-        console.log(`Manual sync completed: ${data.appointments.length} appointments`);
-        if (data.newAppointments.length > 0) {
-          console.log(`${data.newAppointments.length} new appointments detected`);
-        }
-        if (data.updatedAppointments.length > 0) {
-          console.log(`${data.updatedAppointments.length} appointments updated`);
-        }
       }
     },
     onError: (error) => {
-      console.error('Manual sync error:', error);
+      console.error('❌ Manual sync error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error de sincronización manual';
       if (errorMessage.trim() && errorMessage.length <= 200) {
         setSyncError(errorMessage);
@@ -184,7 +187,18 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
   }, [sqlServerQuery.data?.patients]);
 
   const appointments = useMemo(() => {
-    return sqlServerQuery.data?.appointments || mockAppointments;
+    const result = sqlServerQuery.data?.appointments || mockAppointments;
+    console.log('📋 Appointments memoized:', result.length);
+    if (result.length > 0) {
+      console.log('📋 First appointment in memoized data:', {
+        id: result[0].id,
+        patientName: result[0].patientName,
+        date: result[0].date,
+        time: result[0].time,
+        treatment: result[0].treatment
+      });
+    }
+    return result;
   }, [sqlServerQuery.data?.appointments]);
 
   const newAppointments = useMemo(() => {
@@ -199,10 +213,20 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
     const today = new Date();
     const todayStr = today.toISOString().split('T')[0];
     console.log('🔍 Filtering appointments for today:', todayStr);
-    console.log('📋 Available appointments:', appointments.map(apt => ({ id: apt.id, date: apt.date, patient: apt.patientName })));
+    console.log('📋 Total appointments available:', appointments.length);
+    
+    if (appointments.length > 0) {
+      console.log('📋 First few appointments:');
+      appointments.slice(0, 5).forEach((apt, index) => {
+        console.log(`   ${index + 1}. ID: ${apt.id}, Date: ${apt.date}, Patient: ${apt.patientName}, Time: ${apt.time}`);
+      });
+    }
     
     const filtered = appointments.filter(apt => {
-      if (!apt.date) return false;
+      if (!apt.date) {
+        console.log('⚠️ Appointment without date:', apt.id, apt.patientName);
+        return false;
+      }
       
       // Normalize date formats for comparison
       let aptDate = apt.date;
@@ -226,11 +250,20 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
         return isToday;
       }
       
+      console.log('⚠️ Invalid date format:', aptDate, 'for appointment:', apt.id);
       return false;
     });
     
     console.log(`✅ Today's appointments found: ${filtered.length}`);
-    filtered.forEach(apt => console.log(`   - ${apt.time} ${apt.patientName} (${apt.treatment})`));
+    if (filtered.length > 0) {
+      console.log('📅 Today\'s appointments:');
+      filtered.forEach(apt => console.log(`   - ${apt.time} ${apt.patientName} (${apt.treatment})`));
+    } else {
+      console.log('🚨 No appointments found for today. Checking all dates:');
+      const uniqueDates = [...new Set(appointments.map(apt => apt.date).filter(Boolean))];
+      console.log('   Available dates:', uniqueDates);
+    }
+    
     return filtered;
   }, [appointments]);
 
@@ -280,7 +313,10 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
     
     // Actions
     setSelectedConversation,
-    syncNow: syncMutation.mutate,
+    syncNow: () => {
+      console.log('🔄 Sync button pressed - triggering manual sync');
+      syncMutation.mutate();
+    },
     updateConversations: updateConversationsMutation.mutate,
     updateTemplates: updateTemplatesMutation.mutate,
     updateAutomations: updateAutomationsMutation.mutate,
@@ -332,7 +368,12 @@ const generateMockAppointments = (): Appointment[] => {
   dayAfter.setDate(dayAfter.getDate() + 2);
   const dayAfterStr = dayAfter.toISOString().split('T')[0];
   
-  return [
+  console.log('📋 Generating mock appointments:');
+  console.log(`   Today: ${todayStr}`);
+  console.log(`   Tomorrow: ${tomorrowStr}`);
+  console.log(`   Day after: ${dayAfterStr}`);
+  
+  const appointments = [
     {
       id: '1',
       patientId: '1',
@@ -340,7 +381,7 @@ const generateMockAppointments = (): Appointment[] => {
       date: todayStr,
       time: '09:00',
       treatment: 'Revisión implante',
-      status: 'scheduled',
+      status: 'scheduled' as const,
       dentist: 'Mario Rubio',
       notes: 'Control post-implante'
     },
@@ -351,7 +392,7 @@ const generateMockAppointments = (): Appointment[] => {
       date: todayStr,
       time: '10:30',
       treatment: 'Ajuste ortodoncia',
-      status: 'scheduled',
+      status: 'scheduled' as const,
       dentist: 'Irene Garcia',
       notes: 'Ajuste mensual de brackets'
     },
@@ -362,7 +403,7 @@ const generateMockAppointments = (): Appointment[] => {
       date: tomorrowStr,
       time: '11:00',
       treatment: 'Limpieza dental',
-      status: 'scheduled',
+      status: 'scheduled' as const,
       dentist: 'Virginia Tresgallo',
       notes: 'Limpieza semestral'
     },
@@ -373,7 +414,7 @@ const generateMockAppointments = (): Appointment[] => {
       date: dayAfterStr,
       time: '14:00',
       treatment: 'Control post-implante',
-      status: 'scheduled',
+      status: 'scheduled' as const,
       dentist: 'Mario Rubio'
     },
     {
@@ -383,10 +424,13 @@ const generateMockAppointments = (): Appointment[] => {
       date: '2025-09-15',
       time: '16:30',
       treatment: 'Revisión ortodoncia',
-      status: 'scheduled',
+      status: 'scheduled' as const,
       dentist: 'Irene Garcia'
     }
   ];
+  
+  console.log(`📋 Generated ${appointments.length} mock appointments`);
+  return appointments;
 };
 
 const mockAppointments: Appointment[] = generateMockAppointments();

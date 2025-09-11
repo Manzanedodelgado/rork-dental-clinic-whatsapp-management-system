@@ -81,6 +81,7 @@ export class SQLServerService {
       
       if (response.ok) {
         const responseData = await response.json();
+        console.log('📥 Raw backend response:', responseData);
         
         // El nuevo backend devuelve un objeto con metadata
         if (responseData.appointments) {
@@ -92,6 +93,14 @@ export class SQLServerService {
           console.log(`   🆕 Nuevos: ${metadata.new_count || 0}`);
           console.log(`   🔄 Actualizados: ${metadata.updated_count || 0}`);
           console.log(`   ⏰ Timestamp: ${metadata.timestamp || 'N/A'}`);
+          
+          // Log first few appointments for debugging
+          if (sqlData.length > 0) {
+            console.log('📋 Primeras citas del backend:');
+            sqlData.slice(0, 3).forEach((apt, index) => {
+              console.log(`   ${index + 1}. ${apt.Nombre} ${apt.Apellidos} - ${apt.Fecha} ${apt.Hora} (${apt.Tratamiento})`);
+            });
+          }
           
           return sqlData;
         } else {
@@ -210,7 +219,7 @@ export class SQLServerService {
             Apellidos: 'Rodríguez Pérez',
             Nombre: 'Elena',
             TelMovil: '+34 611 789 123',
-            Fecha: '2025-01-15',
+            Fecha: '2025-09-15',
             Hora: '12:30',
             EstadoCita: 'Programada',
             Tratamiento: 'Periodoncia',
@@ -290,11 +299,23 @@ export class SQLServerService {
   private static convertSQLToAppointment(row: SQLServerAppointment): Appointment | null {
     try {
       if (!row.Fecha || !row.Hora || !row.Nombre) {
+        console.warn('❌ Missing required fields:', { Fecha: row.Fecha, Hora: row.Hora, Nombre: row.Nombre });
         return null;
       }
 
-      // Parse date (assuming YYYY-MM-DD format from SQL)
+      console.log('🔄 Converting SQL appointment:', {
+        Registro: row.Registro,
+        Nombre: row.Nombre,
+        Apellidos: row.Apellidos,
+        Fecha: row.Fecha,
+        Hora: row.Hora,
+        Tratamiento: row.Tratamiento
+      });
+
+      // Parse date - handle different formats
       let formattedDate = row.Fecha;
+      
+      // If date contains '/', convert DD/MM/YYYY to YYYY-MM-DD
       if (row.Fecha.includes('/')) {
         const dateParts = row.Fecha.split('/');
         if (dateParts.length === 3) {
@@ -304,9 +325,22 @@ export class SQLServerService {
           formattedDate = `${year}-${month}-${day}`;
         }
       }
+      // If date is already in YYYY-MM-DD format, keep it
+      else if (row.Fecha.match(/^\d{4}-\d{2}-\d{2}$/)) {
+        formattedDate = row.Fecha;
+      }
+      // If date is in other format, try to parse it
+      else {
+        const dateObj = new Date(row.Fecha);
+        if (!isNaN(dateObj.getTime())) {
+          formattedDate = dateObj.toISOString().split('T')[0];
+        }
+      }
 
-      // Parse time (assuming HH:MM format)
+      // Parse time - handle different formats
       let formattedTime = row.Hora;
+      
+      // If time doesn't contain ':', assume it's decimal format
       if (row.Hora && !row.Hora.includes(':')) {
         const timeDecimal = parseFloat(row.Hora);
         if (!isNaN(timeDecimal)) {
@@ -315,6 +349,10 @@ export class SQLServerService {
           formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
         }
       }
+      // If time is already in HH:MM format, keep it
+      else if (row.Hora && row.Hora.match(/^\d{1,2}:\d{2}$/)) {
+        formattedTime = row.Hora;
+      }
 
       // Map status from SQL to our format
       const status = this.mapSQLStatus(row.EstadoCita);
@@ -322,21 +360,32 @@ export class SQLServerService {
       // Generate patient ID from patient number
       const patientId = row.NumPac || `patient_${row.Nombre.replace(/\s+/g, '_').toLowerCase()}`;
 
-      return {
+      const appointment: Appointment = {
         id: row.Registro,
         patientId,
-        patientName: `${row.Nombre} ${row.Apellidos}`.trim(),
+        patientName: `${row.Nombre} ${row.Apellidos || ''}`.trim(),
         date: formattedDate,
         time: formattedTime,
         treatment: row.Tratamiento || 'Consulta general',
         status,
-        notes: row.Notas,
-        dentist: row.Odontologo,
+        notes: row.Notas || '',
+        dentist: row.Odontologo?.replace('Dr. ', '').replace('Dra. ', '') || '',
         startDateTime: `${formattedDate}T${formattedTime}:00`,
-        endDateTime: undefined // Calculate based on treatment duration if needed
+        endDateTime: undefined
       };
+
+      console.log('✅ Converted appointment:', {
+        id: appointment.id,
+        patientName: appointment.patientName,
+        date: appointment.date,
+        time: appointment.time,
+        treatment: appointment.treatment,
+        status: appointment.status
+      });
+
+      return appointment;
     } catch (error) {
-      console.warn('Error converting SQL row to appointment:', error);
+      console.error('❌ Error converting SQL row to appointment:', error, row);
       return null;
     }
   }
