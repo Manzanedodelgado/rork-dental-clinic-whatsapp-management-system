@@ -196,15 +196,41 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
   }, [sqlServerQuery.data?.updatedAppointments]);
 
   const todayAppointments = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    console.log('Filtering appointments for today:', today);
-    console.log('Available appointments:', appointments.map(apt => ({ id: apt.id, date: apt.date, patient: apt.patientName })));
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    console.log('🔍 Filtering appointments for today:', todayStr);
+    console.log('📋 Available appointments:', appointments.map(apt => ({ id: apt.id, date: apt.date, patient: apt.patientName })));
+    
     const filtered = appointments.filter(apt => {
-      const aptDate = apt.date;
-      console.log(`Comparing appointment date '${aptDate}' with today '${today}'`);
-      return aptDate === today;
+      if (!apt.date) return false;
+      
+      // Normalize date formats for comparison
+      let aptDate = apt.date;
+      
+      // Handle different date formats
+      if (aptDate.includes('/')) {
+        const parts = aptDate.split('/');
+        if (parts.length === 3) {
+          // Convert DD/MM/YYYY to YYYY-MM-DD
+          const day = parts[0].padStart(2, '0');
+          const month = parts[1].padStart(2, '0');
+          const year = parts[2];
+          aptDate = `${year}-${month}-${day}`;
+        }
+      }
+      
+      // Ensure YYYY-MM-DD format
+      if (aptDate.length === 10 && aptDate.includes('-')) {
+        const isToday = aptDate === todayStr;
+        console.log(`📅 Comparing '${aptDate}' with today '${todayStr}': ${isToday}`);
+        return isToday;
+      }
+      
+      return false;
     });
-    console.log('Today\'s appointments:', filtered);
+    
+    console.log(`✅ Today's appointments found: ${filtered.length}`);
+    filtered.forEach(apt => console.log(`   - ${apt.time} ${apt.patientName} (${apt.treatment})`));
     return filtered;
   }, [appointments]);
 

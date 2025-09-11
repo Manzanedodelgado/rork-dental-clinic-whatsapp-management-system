@@ -131,10 +131,15 @@ export class SQLServerService {
         console.warn('⚠️ Archivo local no disponible, usando datos simulados mejorados...', fileError);
         
         // Fallback a datos simulados más realistas con fechas actuales
-        const today = new Date();
-        const todayStr = today.toISOString().split('T')[0];
-        const tomorrowStr = new Date(today.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const dayAfterStr = new Date(today.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        const tomorrowStr = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const dayAfterStr = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        console.log('📅 Mock data dates:');
+        console.log('   Today (hoy):', todayStr);
+        console.log('   Tomorrow (mañana):', tomorrowStr);
+        console.log('   Day after (pasado mañana):', dayAfterStr);
         
         const mockSQLData: SQLServerAppointment[] = [
           {
@@ -147,7 +152,7 @@ export class SQLServerService {
             TelMovil: '+34 666 123 456',
             Fecha: todayStr,
             Hora: '09:00',
-            EstadoCita: 'Planificada',
+            EstadoCita: 'Programada',
             Tratamiento: 'Revisión',
             Odontologo: 'Dr. Mario Rubio',
             Notas: 'Primera visita del año - Revisión general'
@@ -162,7 +167,7 @@ export class SQLServerService {
             TelMovil: '+34 677 234 567',
             Fecha: todayStr,
             Hora: '10:30',
-            EstadoCita: 'Confirmada',
+            EstadoCita: 'Programada',
             Tratamiento: 'Ortodoncia',
             Odontologo: 'Dra. Irene Garcia',
             Notas: 'Ajuste de brackets - Control mensual'
@@ -177,7 +182,7 @@ export class SQLServerService {
             TelMovil: '+34 688 345 678',
             Fecha: tomorrowStr,
             Hora: '11:00',
-            EstadoCita: 'Planificada',
+            EstadoCita: 'Programada',
             Tratamiento: 'Higiene dental',
             Odontologo: 'Dra. Virginia Tresgallo',
             Notas: 'Limpieza y revisión - Cita semestral'
@@ -192,7 +197,7 @@ export class SQLServerService {
             TelMovil: '+34 699 456 789',
             Fecha: dayAfterStr,
             Hora: '16:00',
-            EstadoCita: 'Planificada',
+            EstadoCita: 'Programada',
             Tratamiento: 'Cirugía Implantes',
             Odontologo: 'Dr. Juan Antonio Manzanedo',
             Notas: 'Colocación de implante molar inferior'
@@ -207,7 +212,7 @@ export class SQLServerService {
             TelMovil: '+34 611 789 123',
             Fecha: '2025-01-15',
             Hora: '12:30',
-            EstadoCita: 'Confirmada',
+            EstadoCita: 'Programada',
             Tratamiento: 'Periodoncia',
             Odontologo: 'Dra. Miriam Carrasco',
             Notas: 'Tratamiento periodontal - Segunda sesión'
@@ -339,7 +344,7 @@ export class SQLServerService {
   private static mapSQLStatus(estadoCita: string): 'scheduled' | 'completed' | 'cancelled' | 'no-show' {
     const status = estadoCita?.toLowerCase() || '';
     
-    if (status.includes('planificada') || status.includes('confirmada')) {
+    if (status.includes('planificada') || status.includes('confirmada') || status.includes('programada')) {
       return 'scheduled';
     }
     if (status.includes('finalizada') || status.includes('completada')) {

@@ -92,23 +92,48 @@ export default function AgendaScreen() {
     startDate.setDate(firstDay.getDate() - daysToSubtract);
     
     const days: CalendarDay[] = [];
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    
+    console.log('📅 Generating calendar for:', currentMonth.toLocaleDateString('es-ES'));
+    console.log('📅 Today is:', todayStr);
     
     for (let i = 0; i < 42; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
       const dateString = date.toISOString().split('T')[0];
-      const dayAppointments = appointments.filter(apt => apt.date === dateString);
+      
+      // Filter appointments for this date with proper date comparison
+      const dayAppointments = appointments.filter(apt => {
+        if (!apt.date) return false;
+        
+        let aptDate = apt.date;
+        // Handle different date formats
+        if (aptDate.includes('/')) {
+          const parts = aptDate.split('/');
+          if (parts.length === 3) {
+            const day = parts[0].padStart(2, '0');
+            const month = parts[1].padStart(2, '0');
+            const year = parts[2];
+            aptDate = `${year}-${month}-${day}`;
+          }
+        }
+        
+        return aptDate === dateString;
+      });
       
       days.push({
         date: dateString,
         day: date.getDate(),
         isCurrentMonth: date.getMonth() === month,
-        isToday: dateString === today,
+        isToday: dateString === todayStr,
         hasAppointments: dayAppointments.length > 0,
         appointmentCount: dayAppointments.length
       });
     }
+    
+    console.log('📅 Calendar days generated:', days.length);
+    console.log('📅 Days with appointments:', days.filter(d => d.hasAppointments).length);
     
     return days;
   }, [currentMonth, appointments]);
@@ -208,19 +233,32 @@ export default function AgendaScreen() {
   };
 
   const formatSelectedDate = (dateString: string) => {
-    // Parse date correctly to avoid timezone issues
-    const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // month is 0-indexed
-    
-    // Get day names in Spanish
-    const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
-                       'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-    
-    const dayName = dayNames[date.getDay()];
-    const monthName = monthNames[date.getMonth()];
-    
-    return `${dayName}, ${day} De ${monthName} De ${year}`;
+    try {
+      // Parse date correctly to avoid timezone issues
+      const [year, month, day] = dateString.split('-').map(Number);
+      
+      // Create date at noon to avoid timezone issues
+      const date = new Date(year, month - 1, day, 12, 0, 0);
+      
+      console.log('🗓️ Formatting date:', dateString, '-> Date object:', date);
+      console.log('🗓️ Day of week (0=Sunday):', date.getDay());
+      
+      // Get day names in Spanish
+      const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+      const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
+                         'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+      
+      const dayName = dayNames[date.getDay()];
+      const monthName = monthNames[date.getMonth()];
+      
+      const formatted = `${dayName}, ${day} De ${monthName} De ${year}`;
+      console.log('🗓️ Formatted date:', formatted);
+      
+      return formatted;
+    } catch (error) {
+      console.error('❌ Error formatting date:', error);
+      return dateString;
+    }
   };
 
   const getStatusColor = (status: Appointment['status']) => {
@@ -665,24 +703,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
     marginHorizontal: 16,
     marginBottom: 16,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 8,
+    padding: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   weekDaysHeader: {
     flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   weekDayContainer: {
     flex: 1,
     alignItems: 'center',
   },
   weekDayText: {
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
     color: Colors.light.tabIconDefault,
     textTransform: 'uppercase',
@@ -693,12 +731,12 @@ const styles = StyleSheet.create({
   },
   calendarDay: {
     width: '14.28%',
-    height: 28,
+    height: 24,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 2,
-    borderRadius: 6,
+    marginBottom: 1,
+    borderRadius: 4,
   },
   calendarDayInactive: {
     opacity: 0.3,
@@ -720,7 +758,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.accent + '10',
   },
   calendarDayText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: Colors.light.text,
   },
