@@ -100,11 +100,21 @@ export default function AgendaScreen() {
     
     console.log('📅 Generating calendar for:', currentMonth.toLocaleDateString('es-ES'));
     console.log('📅 Today is:', todayStr);
+    console.log('📅 First day of month:', firstDay.toISOString());
+    console.log('📅 Start date for calendar:', startDate.toISOString());
     
     for (let i = 0; i < 42; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
       const dateString = date.toISOString().split('T')[0];
+      
+      // Debug specific dates
+      if (dateString === '2025-07-07' || dateString === '2025-07-06' || dateString === '2025-07-08') {
+        console.log(`🔍 Calendar date ${dateString}:`);
+        console.log('   Date object:', date);
+        console.log('   Day of week:', date.getDay(), '(0=Sun, 1=Mon, 2=Tue, etc.)');
+        console.log('   Local date string:', date.toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }));
+      }
       
       // Filter appointments for this date with proper date comparison
       const dayAppointments = appointments.filter(apt => {
@@ -122,7 +132,12 @@ export default function AgendaScreen() {
           }
         }
         
-        return aptDate === dateString;
+        const matches = aptDate === dateString;
+        if (matches && (dateString === '2025-07-07' || dateString === '2025-07-06' || dateString === '2025-07-08')) {
+          console.log(`📅 Found appointment for ${dateString}:`, apt.patientName, apt.time);
+        }
+        
+        return matches;
       });
       
       days.push({
@@ -138,6 +153,16 @@ export default function AgendaScreen() {
     console.log('📅 Calendar days generated:', days.length);
     console.log('📅 Days with appointments:', days.filter(d => d.hasAppointments).length);
     
+    // Log specific dates around July 7, 2025
+    const july2025Days = days.filter(d => d.date.startsWith('2025-07'));
+    if (july2025Days.length > 0) {
+      console.log('📅 July 2025 days in calendar:');
+      july2025Days.forEach(d => {
+        const dateObj = new Date(d.date + 'T00:00:00');
+        console.log(`   ${d.date}: day ${d.day}, weekday ${dateObj.getDay()}, appointments: ${d.appointmentCount}`);
+      });
+    }
+    
     return days;
   }, [currentMonth, appointments]);
 
@@ -145,21 +170,34 @@ export default function AgendaScreen() {
   const selectedDateAppointments = useMemo(() => {
     if (!appointments || appointments.length === 0) return [];
     
-    return appointments
+    console.log('📅 Filtering appointments for selected date:', selectedDate);
+    console.log('📅 Total appointments available:', appointments.length);
+    
+    const filtered = appointments
       .filter(apt => {
         // Normalize dates for comparison
         const aptDate = apt.date;
         const selected = selectedDate;
         
         // Handle different date formats
-        if (aptDate === selected) return true;
+        if (aptDate === selected) {
+          console.log('📅 Direct match found:', apt.patientName, apt.time);
+          return true;
+        }
         
         // Try parsing both dates to compare
         try {
           const aptDateObj = new Date(aptDate + 'T00:00:00');
           const selectedDateObj = new Date(selected + 'T00:00:00');
-          return aptDateObj.getTime() === selectedDateObj.getTime();
-        } catch {
+          const matches = aptDateObj.getTime() === selectedDateObj.getTime();
+          
+          if (matches) {
+            console.log('📅 Parsed date match found:', apt.patientName, apt.time, 'aptDate:', aptDate, 'selected:', selected);
+          }
+          
+          return matches;
+        } catch (error) {
+          console.log('📅 Date parsing failed for:', aptDate, 'vs', selected, error);
           return false;
         }
       })
@@ -169,6 +207,16 @@ export default function AgendaScreen() {
         const timeB = b.time || '00:00';
         return timeA.localeCompare(timeB);
       });
+    
+    console.log('📅 Filtered appointments for', selectedDate, ':', filtered.length);
+    if (filtered.length > 0) {
+      console.log('📅 Appointments found:');
+      filtered.forEach((apt, i) => {
+        console.log(`   ${i + 1}. ${apt.patientName} at ${apt.time} - ${apt.treatment}`);
+      });
+    }
+    
+    return filtered;
   }, [appointments, selectedDate]);
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -271,10 +319,17 @@ export default function AgendaScreen() {
       // This ensures the day of week calculation is correct
       const date = new Date(year, month - 1, day);
       
-      console.log('🗓️ Formatting date:', dateString, '-> Date object:', date);
-      console.log('🗓️ Day of week (0=Sunday):', date.getDay());
+      console.log('🗓️ Formatting date:', dateString);
+      console.log('🗓️ Date components: year=', year, 'month=', month, 'day=', day);
+      console.log('🗓️ Created Date object:', date.toISOString());
+      console.log('🗓️ Local date string:', date.toLocaleDateString('es-ES'));
+      console.log('🗓️ Day of week (0=Sunday, 1=Monday):', date.getDay());
       
-      // Get day names in Spanish
+      // Verify the date is correct by checking if it matches our input
+      const verifyDateStr = date.toISOString().split('T')[0];
+      console.log('🗓️ Verification - input:', dateString, 'output:', verifyDateStr);
+      
+      // Get day names in Spanish (0=Sunday, 1=Monday, etc.)
       const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
@@ -283,7 +338,19 @@ export default function AgendaScreen() {
       const monthName = monthNames[date.getMonth()];
       
       const formatted = `${dayName}, ${day} De ${monthName} De ${year}`;
-      console.log('🗓️ Formatted date:', formatted);
+      console.log('🗓️ Final formatted date:', formatted);
+      
+      // Special verification for July 7, 2025
+      if (dateString === '2025-07-07') {
+        console.log('🔍 SPECIAL CHECK for July 7, 2025:');
+        console.log('   Input date string: 2025-07-07');
+        console.log('   Parsed components: year=2025, month=7, day=7');
+        console.log('   Date constructor: new Date(2025, 6, 7) // month is 0-indexed');
+        console.log('   Created date object:', new Date(2025, 6, 7));
+        console.log('   Day of week:', new Date(2025, 6, 7).getDay(), '(should be 1 for Monday)');
+        console.log('   Expected result: "Lunes, 7 De Julio De 2025"');
+        console.log('   Actual result:', formatted);
+      }
       
       return formatted;
     } catch (error) {

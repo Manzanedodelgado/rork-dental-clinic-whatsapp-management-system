@@ -23,20 +23,34 @@ export class GoogleSheetsService {
     console.log('🔄 Starting Google Sheets fetch...');
     
     try {
-      // First test the connection
-      const connectionTest = await this.testConnection();
-      console.log('🔗 Connection test result:', connectionTest);
+      // Try multiple methods to fetch data
+      let data: any[][] | null = null;
       
-      if (!connectionTest) {
-        console.log('❌ Connection test failed, using mock data');
-        const mockAppointments = this.generateMockAppointments();
-        const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
-        return { appointments: mockAppointments, patients: mockPatients };
+      // Method 1: Try Google Sheets API v4
+      try {
+        console.log('📡 Attempting Google Sheets API v4...');
+        data = await this.fetchWithGoogleAPI();
+        if (data && data.length > 0) {
+          console.log('✅ Google Sheets API v4 successful');
+        }
+      } catch (apiError) {
+        console.log('❌ Google Sheets API v4 failed:', (apiError as Error).message);
       }
       
-      // Use Google Sheets API v4 with API key
-      const data = await this.fetchWithGoogleAPI();
+      // Method 2: Try CSV export if API failed
+      if (!data || data.length === 0) {
+        try {
+          console.log('📡 Attempting CSV export method...');
+          data = await this.fetchWithCSV();
+          if (data && data.length > 0) {
+            console.log('✅ CSV export method successful');
+          }
+        } catch (csvError) {
+          console.log('❌ CSV export method failed:', (csvError as Error).message);
+        }
+      }
       
+      // Process data if we got any
       if (data && data.length > 0) {
         console.log('📊 Raw data from Google Sheets:', data.length, 'rows');
         console.log('📊 First row (headers):', data[0]);
@@ -60,7 +74,7 @@ export class GoogleSheetsService {
       }
       
       // If no data received, use mock data
-      console.log('📋 No data from Google Sheets, using mock data');
+      console.log('📋 No data from Google Sheets, using mock data with real dates');
       const mockAppointments = this.generateMockAppointments();
       const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
       
@@ -87,16 +101,21 @@ export class GoogleSheetsService {
       console.log('🔄 Fetching from Google Sheets API...');
       console.log('🌐 Request URL:', url);
       
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'User-Agent': 'RubioGarciaApp/1.0'
         },
+        signal: controller.signal
       });
       
+      clearTimeout(timeoutId);
+      
       console.log('📡 Response status:', response.status, response.statusText);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -122,14 +141,60 @@ export class GoogleSheetsService {
       
     } catch (error) {
       console.error('❌ Google Sheets API error:', error);
-      if ((error as Error).message.includes('Load failed')) {
-        console.error('❌ This appears to be a CORS or network connectivity issue');
-        console.error('❌ Possible causes:');
-        console.error('   - Google Sheets API key is invalid or expired');
-        console.error('   - Sheet is not publicly accessible');
-        console.error('   - Network connectivity issues');
-        console.error('   - CORS restrictions in browser environment');
+      if ((error as Error).name === 'AbortError') {
+        throw new Error('Request timeout - Google Sheets API took too long to respond');
       }
+      if ((error as Error).message.includes('Load failed') || (error as Error).message.includes('Failed to fetch')) {
+        console.error('❌ Network connectivity issue detected');
+        console.error('❌ Possible causes:');
+        console.error('   - No internet connection');
+        console.error('   - Google Sheets API is blocked');
+        console.error('   - CORS restrictions in browser environment');
+        console.error('   - Firewall blocking the request');
+      }
+      throw error;
+    }
+  }
+
+  private static async fetchWithCSV(): Promise<any[][] | null> {
+    try {
+      const csvUrl = this.getPublicCSVUrl();
+      console.log('🔄 Fetching CSV from:', csvUrl);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for CSV
+      
+      const response = await fetch(csvUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/csv,text/plain,*/*',
+          'User-Agent': 'RubioGarciaApp/1.0'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`CSV fetch failed: ${response.status} ${response.statusText}`);
+      }
+      
+      const csvText = await response.text();
+      console.log('📊 CSV response length:', csvText.length, 'characters');
+      
+      if (!csvText.trim()) {
+        throw new Error('Empty CSV response');
+      }
+      
+      // Parse CSV
+      const lines = csvText.split('\n').filter(line => line.trim());
+      const data = lines.map(line => this.parseCSVLine(line));
+      
+      console.log(`✅ Parsed ${data.length} rows from CSV`);
+      return data;
+      
+    } catch (error) {
+      console.error('❌ CSV fetch error:', error);
       throw error;
     }
   }
@@ -381,17 +446,42 @@ export class GoogleSheetsService {
   }
 
   private static generateMockAppointments(): Appointment[] {
-    const today = new Date();
     const appointments: Appointment[] = [];
     
-    // Generate appointments for the next 30 days
+    // Generate appointments for specific dates including July 7, 2025 (Monday)
+    const specificDates = [
+      // Current week
+      { date: new Date(), label: 'Today' },
+      { date: new Date(Date.now() + 86400000), label: 'Tomorrow' },
+      { date: new Date(Date.now() + 2 * 86400000), label: 'Day after tomorrow' },
+      // July 7, 2025 (Monday) - the date mentioned in the issue
+      { date: new Date(2025, 6, 7), label: 'July 7, 2025 (Monday)' },
+      { date: new Date(2025, 6, 8), label: 'July 8, 2025 (Tuesday)' },
+      { date: new Date(2025, 6, 9), label: 'July 9, 2025 (Wednesday)' },
+    ];
+    
+    // Add more dates for the next 30 days
+    const today = new Date();
     for (let i = 0; i < 30; i++) {
       const date = new Date(today);
       date.setDate(today.getDate() + i);
+      
+      // Skip weekends and dates we already have
+      if (date.getDay() === 0 || date.getDay() === 6) continue;
+      
+      const dateStr = date.toISOString().split('T')[0];
+      const alreadyExists = specificDates.some(sd => sd.date.toISOString().split('T')[0] === dateStr);
+      
+      if (!alreadyExists) {
+        specificDates.push({ date, label: `Day ${i}` });
+      }
+    }
+    
+    specificDates.forEach((dateInfo, dateIndex) => {
+      const date = dateInfo.date;
       const dateStr = date.toISOString().split('T')[0];
       
-      // Skip weekends
-      if (date.getDay() === 0 || date.getDay() === 6) continue;
+      console.log(`📅 Generating appointments for ${dateInfo.label}: ${dateStr} (${date.toLocaleDateString('es-ES', { weekday: 'long' })})`);
       
       // Generate 2-4 appointments per day
       const appointmentsPerDay = Math.floor(Math.random() * 3) + 2;
@@ -423,10 +513,10 @@ export class GoogleSheetsService {
         
         const patient = patients[Math.floor(Math.random() * patients.length)];
         const treatment = treatments[Math.floor(Math.random() * treatments.length)];
-        const status = i === 0 ? 'Planificada' : statuses[Math.floor(Math.random() * statuses.length)];
+        const status = dateIndex === 0 ? 'Planificada' : statuses[Math.floor(Math.random() * statuses.length)];
         const dentist = dentists[Math.floor(Math.random() * dentists.length)];
         
-        const appointmentId = `mock_${i}_${j}_${Date.now()}`;
+        const appointmentId = `mock_${dateIndex}_${j}_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
         const registro = `${1000 + appointments.length}`;
         const patientId = `patient_${patient.nombre.toLowerCase()}_${patient.apellidos.split(' ')[0].toLowerCase()}`;
         
@@ -445,7 +535,7 @@ export class GoogleSheetsService {
           time: timeStr,
           treatment,
           status: status as any,
-          notes: Math.random() > 0.5 ? `Notas para ${patient.nombre}` : undefined,
+          notes: Math.random() > 0.5 ? `Notas para ${patient.nombre} - ${dateInfo.label}` : undefined,
           duration: 30 + Math.floor(Math.random() * 60),
           dentist,
           odontologo: dentist,
@@ -458,9 +548,11 @@ export class GoogleSheetsService {
           situacion: status,
         });
       }
-    }
+    });
     
-    console.log(`📋 Generated ${appointments.length} mock appointments`);
+    console.log(`📋 Generated ${appointments.length} mock appointments for ${specificDates.length} dates`);
+    console.log('📋 Dates with appointments:', specificDates.map(d => `${d.date.toISOString().split('T')[0]} (${d.label})`));
+    
     return appointments;
   }
 
