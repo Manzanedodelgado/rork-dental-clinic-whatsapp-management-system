@@ -72,20 +72,22 @@ export default function TabLayout() {
         },
       }}
     >
-      <Tabs.Screen
-        name="(home)"
-        options={{
-          title: "Dashboard",
-          tabBarIcon: ({ color, size }) => (
-            <CustomIcon 
-              source="https://r2-pub.rork.com/generated-images/b75c13da-045f-47f5-9c03-03d09b6824f9.png" 
-              color={color} 
-              size={size} 
-            />
-          ),
-        }}
-      />
-      {hasPermission('appointments') && (
+      {hasPermission('dashboard') && (
+        <Tabs.Screen
+          name="(home)"
+          options={{
+            title: "Dashboard",
+            tabBarIcon: ({ color, size }) => (
+              <CustomIcon 
+                source="https://r2-pub.rork.com/generated-images/b75c13da-045f-47f5-9c03-03d09b6824f9.png" 
+                color={color} 
+                size={size} 
+              />
+            ),
+          }}
+        />
+      )}
+      {hasPermission('agenda') && (
         <Tabs.Screen
           name="agenda"
           options={{

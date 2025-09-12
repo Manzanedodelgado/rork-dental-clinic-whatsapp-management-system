@@ -21,12 +21,19 @@ const defaultUsers: User[] = [
   {
     id: '1',
     username: 'JMD',
+    role: 'admin',
+    permissions: ['all'],
+    createdAt: '2025-01-01T00:00:00Z',
+  },
+  {
+    id: '2',
+    username: 'JAMD',
     role: 'user',
     permissions: ['dashboard', 'whatsapp'],
     createdAt: '2025-01-01T00:00:00Z',
   },
   {
-    id: '2',
+    id: '3',
     username: 'admin',
     role: 'admin',
     permissions: ['all'],
@@ -36,6 +43,7 @@ const defaultUsers: User[] = [
 
 const defaultCredentials = {
   'JMD': '190582',
+  'JAMD': '190582',
   'admin': 'admin123'
 };
 
@@ -265,7 +273,13 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
       return false;
     }
     
-    const hasAccess = user.permissions.includes('all') || user.permissions.includes(permission);
+    // Admin role has all permissions
+    if (user.role === 'admin' || user.permissions.includes('all')) {
+      console.log('✅ Admin access granted');
+      return true;
+    }
+    
+    const hasAccess = user.permissions.includes(permission);
     console.log('✅ Permission result:', hasAccess);
     return hasAccess;
   };
