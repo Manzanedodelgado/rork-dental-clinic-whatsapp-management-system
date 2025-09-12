@@ -280,7 +280,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     }
     
     const hasAccess = user.permissions.includes(permission);
-    console.log('✅ Permission result:', hasAccess);
+    console.log(`${hasAccess ? '✅' : '❌'} Permission '${permission}' result:`, hasAccess);
     return hasAccess;
   };
 

@@ -42,9 +42,9 @@ export default function TabLayout() {
   console.log('- User Permissions:', user?.permissions);
   console.log('🔍 Checking individual permissions:');
   console.log('- Dashboard permission:', hasPermission('dashboard'));
-  console.log('- Patients permission:', hasPermission('patients'));
-  console.log('- Appointments permission:', hasPermission('appointments'));
+  console.log('- Agenda permission:', hasPermission('agenda'));
   console.log('- WhatsApp permission:', hasPermission('whatsapp'));
+  console.log('- Patients permission:', hasPermission('patients'));
   console.log('- Templates permission:', hasPermission('templates'));
   console.log('- Automations permission:', hasPermission('automations'));
   console.log('- AI permission:', hasPermission('ai'));
