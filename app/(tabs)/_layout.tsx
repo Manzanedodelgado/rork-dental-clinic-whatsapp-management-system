@@ -2,6 +2,8 @@ import { Tabs } from "expo-router";
 import { Image, View, StyleSheet } from "react-native";
 import React from "react";
 import Colors from "@/constants/colors";
+import { DentalIcon } from "@/components";
+import { DENTAL_ICONS } from "@/constants/icons";
 
 const CustomIcon = ({ source, color, size }: { source: string; color: string; size: number }) => (
   <View style={[styles.iconContainer, { width: size, height: size }]}>
@@ -41,7 +43,7 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="home"
+        name="(home)"
         options={{
           title: "Dashboard",
           tabBarIcon: ({ color, size }) => (
