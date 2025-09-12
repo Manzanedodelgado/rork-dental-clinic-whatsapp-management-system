@@ -22,7 +22,9 @@ import {
 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useClinic } from '@/hooks/useClinicStore';
+import { useAuth } from '@/hooks/useAuth';
 import type { WhatsAppMessage } from '@/types';
+import { Shield } from 'lucide-react-native';
 
 export default function ChatScreen() {
   const { 
@@ -31,6 +33,7 @@ export default function ChatScreen() {
     selectedConversation,
     setSelectedConversation
   } = useClinic();
+  const { hasPermission } = useAuth();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [messageText, setMessageText] = useState('');
@@ -116,6 +119,20 @@ export default function ChatScreen() {
       setMessages(prev => [...prev, aiResponse]);
     }, 2000);
   };
+
+  // Check permissions
+  if (!hasPermission('whatsapp') && !hasPermission('all')) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.noPermissionContainer}>
+          <Shield size={64} color={Colors.light.textSecondary} />
+          <Text style={styles.noPermissionText}>
+            No tienes permisos para acceder a esta sección
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   const renderConversationItem = ({ item }: { item: typeof conversations[0] }) => (
     <TouchableOpacity
@@ -711,5 +728,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.text,
     fontWeight: '500',
+  },
+  noPermissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  noPermissionText: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

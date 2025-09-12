@@ -23,10 +23,13 @@ import {
 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useClinic } from '@/hooks/useClinicStore';
+import { useAuth } from '@/hooks/useAuth';
 import type { Patient } from '@/types';
+import { Shield } from 'lucide-react-native';
 
 export default function PatientsScreen() {
-  const { patients, updatePatients } = useClinic();
+  const { patients } = useClinic();
+  const { hasPermission } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -47,6 +50,20 @@ export default function PatientsScreen() {
     setShowPatientModal(true);
   };
 
+  // Check permissions
+  if (!hasPermission('patients') && !hasPermission('all')) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.noPermissionContainer}>
+          <Shield size={64} color={Colors.light.textSecondary} />
+          <Text style={styles.noPermissionText}>
+            No tienes permisos para acceder a esta sección
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   const handleDeletePatient = (patientId: string) => {
     Alert.alert(
       'Eliminar Paciente',
@@ -57,8 +74,8 @@ export default function PatientsScreen() {
           text: 'Eliminar',
           style: 'destructive',
           onPress: () => {
-            const updatedPatients = patients.filter(p => p.id !== patientId);
-            updatePatients(updatedPatients);
+            // TODO: Implement patient deletion
+            console.log('Delete patient:', patientId);
           }
         }
       ]
@@ -181,7 +198,8 @@ export default function PatientsScreen() {
         visible={showAddModal}
         onClose={() => setShowAddModal(false)}
         onSave={(newPatient) => {
-          updatePatients([...patients, newPatient]);
+          // TODO: Implement patient creation
+          console.log('Add patient:', newPatient);
           setShowAddModal(false);
         }}
       />
@@ -195,10 +213,8 @@ export default function PatientsScreen() {
           setSelectedPatient(null);
         }}
         onUpdate={(updatedPatient) => {
-          const updatedPatients = patients.map(p => 
-            p.id === updatedPatient.id ? updatedPatient : p
-          );
-          updatePatients(updatedPatients);
+          // TODO: Implement patient update
+          console.log('Update patient:', updatedPatient);
           setShowPatientModal(false);
           setSelectedPatient(null);
         }}
@@ -699,5 +715,17 @@ const styles = StyleSheet.create({
     padding: 12,
     backgroundColor: Colors.light.background,
     borderRadius: 8,
+  },
+  noPermissionContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  noPermissionText: {
+    fontSize: 16,
+    color: Colors.light.textSecondary,
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

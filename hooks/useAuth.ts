@@ -24,11 +24,19 @@ const defaultUsers: User[] = [
     role: 'admin',
     permissions: ['all'],
     createdAt: '2025-01-01T00:00:00Z',
+  },
+  {
+    id: '2',
+    username: 'usuario_test',
+    role: 'user',
+    permissions: ['dashboard', 'patients'],
+    createdAt: '2025-01-01T00:00:00Z',
   }
 ];
 
 const defaultCredentials = {
-  'JMD': '190582'
+  'JMD': '190582',
+  'usuario_test': '123456'
 };
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
