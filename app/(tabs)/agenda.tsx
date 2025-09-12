@@ -549,20 +549,20 @@ export default function AgendaScreen() {
                         <View style={[styles.timeIndicator, { backgroundColor: getStatusColor(appointment.status) }]} />
                         <Clock size={16} color={Colors.light.text} />
                         <Text style={styles.appointmentTimeText}>{appointment.time || 'Sin hora'}</Text>
-                        {appointment.duration && (
+                        {appointment.duration ? (
                           <Text style={styles.appointmentDuration}>({appointment.duration}min)</Text>
-                        )}
+                        ) : null}
                       </View>
                       
                       <View style={styles.appointmentHeaderRight}>
-                        {syncIndicator && (
+                        {syncIndicator ? (
                           <View style={[styles.syncIndicator, { backgroundColor: syncIndicator.color + '20' }]}>
                             <AlertCircle size={12} color={syncIndicator.color} />
                             <Text style={[styles.syncIndicatorText, { color: syncIndicator.color }]}>
                               {syncIndicator.label}
                             </Text>
                           </View>
-                        )}
+                        ) : null}
                         <TouchableOpacity
                           style={styles.editButton}
                           onPress={() => {
@@ -584,15 +584,15 @@ export default function AgendaScreen() {
                           <Text style={styles.appointmentPatientName}>
                             {appointment.nombre} {appointment.apellidos}
                           </Text>
-                          {appointment.numPac && (
+                          {appointment.numPac ? (
                             <Text style={styles.patientNumber}>Paciente #{appointment.numPac}</Text>
-                          )}
-                          {appointment.telMovil && (
+                          ) : null}
+                          {appointment.telMovil ? (
                             <View style={styles.phoneContainer}>
                               <Phone size={14} color={Colors.light.tabIconDefault} />
                               <Text style={styles.phoneText}>{appointment.telMovil}</Text>
                             </View>
-                          )}
+                          ) : null}
                         </View>
                       </View>
                       
@@ -603,35 +603,35 @@ export default function AgendaScreen() {
                       </View>
                       
                       {/* Dentist */}
-                      {(appointment.dentist || appointment.odontologo) && (
+                      {(appointment.dentist || appointment.odontologo) ? (
                         <Text style={styles.appointmentDentist}>
                           Dr. {appointment.dentist || appointment.odontologo}
                         </Text>
-                      )}
+                      ) : null}
                       
                       {/* Notes */}
-                      {appointment.notes && (
+                      {appointment.notes ? (
                         <View style={styles.notesContainer}>
                           <FileText size={14} color={Colors.light.tabIconDefault} />
                           <Text style={styles.appointmentNotes}>{appointment.notes}</Text>
                         </View>
-                      )}
+                      ) : null}
                       
                       {/* Registration Info */}
                       <View style={styles.registrationInfo}>
                         <View style={styles.registrationRow}>
                           <Text style={styles.registrationText}>Registro: {appointment.registro}</Text>
-                          {appointment.fechaAlta && (
+                          {appointment.fechaAlta ? (
                             <Text style={styles.registrationText}>
                               Creada: {new Date(appointment.fechaAlta).toLocaleDateString('es-ES')}
                             </Text>
-                          )}
+                          ) : null}
                         </View>
-                        {appointment.citMod && appointment.fechaAlta && appointment.citMod !== appointment.fechaAlta && (
+                        {appointment.citMod && appointment.fechaAlta && appointment.citMod !== appointment.fechaAlta ? (
                           <Text style={styles.modifiedText}>
                             Modificada: {new Date(appointment.citMod).toLocaleDateString('es-ES')}
                           </Text>
-                        )}
+                        ) : null}
                       </View>
                     </View>
 
@@ -656,11 +656,11 @@ export default function AgendaScreen() {
                       </TouchableOpacity>
                       
                       {/* Situación indicator if different from status */}
-                      {appointment.situacion && appointment.situacion !== appointment.status && (
+                      {appointment.situacion && appointment.situacion !== appointment.status ? (
                         <View style={styles.situacionBadge}>
                           <Text style={styles.situacionText}>Situación: {appointment.situacion}</Text>
                         </View>
-                      )}
+                      ) : null}
                     </View>
                   </View>
                 );
@@ -802,9 +802,9 @@ export default function AgendaScreen() {
                     ]}>
                       {status.label}
                     </Text>
-                    {isSelected && (
+                    {isSelected ? (
                       <UserCheck size={16} color={status.color} />
-                    )}
+                    ) : null}
                   </TouchableOpacity>
                 );
               })}
