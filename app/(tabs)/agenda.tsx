@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
-import { Calendar } from 'lucide-react-native';
+import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/colors';
 
@@ -75,18 +76,158 @@ const getStatusText = (status: string) => {
   }
 };
 
+type MonthMatrix = Array<Array<Date | null>>;
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function getMonthMatrix(year: number, month: number): MonthMatrix {
+  const firstOfMonth = new Date(year, month, 1);
+  const lastOfMonth = new Date(year, month + 1, 0);
+  const firstDayIdx = (firstOfMonth.getDay() + 6) % 7; // Monday=0
+  const daysInMonth = lastOfMonth.getDate();
+  const matrix: MonthMatrix = [];
+  let week: Array<Date | null> = new Array(7).fill(null);
+  let dayCounter = 1;
+  for (let i = 0; i < firstDayIdx; i += 1) week[i] = null;
+  for (let cell = firstDayIdx; cell < 7; cell += 1) {
+    week[cell] = new Date(year, month, dayCounter);
+    dayCounter += 1;
+  }
+  matrix.push(week);
+  while (dayCounter <= daysInMonth) {
+    week = new Array(7).fill(null);
+    for (let i = 0; i < 7 && dayCounter <= daysInMonth; i += 1) {
+      week[i] = new Date(year, month, dayCounter);
+      dayCounter += 1;
+    }
+    matrix.push(week);
+  }
+  return matrix;
+}
+
+function formatShort(date: Date): string {
+  const dd = String(date.getDate()).padStart(2, '0');
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const yyyy = date.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function useToday(): Date {
+  const now = useMemo(() => startOfDay(new Date()), []);
+  return now;
+}
+
+function CalendarDropdown({
+  value,
+  onChange,
+}: { value: Date; onChange: (d: Date) => void }) {
+  const [open, setOpen] = useState<boolean>(false);
+  const [viewYear, setViewYear] = useState<number>(value.getFullYear());
+  const [viewMonth, setViewMonth] = useState<number>(value.getMonth());
+
+  const matrix = useMemo(() => getMonthMatrix(viewYear, viewMonth), [viewYear, viewMonth]);
+
+  const goPrev = useCallback(() => {
+    console.log('CalendarDropdown.goPrev');
+    const m = viewMonth - 1;
+    if (m < 0) {
+      setViewMonth(11);
+      setViewYear((y) => y - 1);
+    } else setViewMonth(m);
+  }, [viewMonth]);
+
+  const goNext = useCallback(() => {
+    console.log('CalendarDropdown.goNext');
+    const m = viewMonth + 1;
+    if (m > 11) {
+      setViewMonth(0);
+      setViewYear((y) => y + 1);
+    } else setViewMonth(m);
+  }, [viewMonth]);
+
+  const onSelect = useCallback((d: Date) => {
+    console.log('CalendarDropdown.onSelect', d.toISOString());
+    onChange(startOfDay(d));
+    setOpen(false);
+    setViewYear(d.getFullYear());
+    setViewMonth(d.getMonth());
+  }, [onChange]);
+
+  const monthLabel = useMemo(
+    () => new Date(viewYear, viewMonth, 1).toLocaleDateString('es-ES', { month: 'long', year: 'numeric' }),
+    [viewMonth, viewYear],
+  );
+
+  return (
+    <View style={styles.dropdownContainer}>
+      <TouchableOpacity
+        testID="date-input"
+        onPress={() => setOpen((v) => !v)}
+        activeOpacity={0.8}
+        style={styles.inputBox}
+      >
+        <Text style={styles.inputText}>{formatShort(value)}</Text>
+        <Calendar size={18} color={Colors.light.tabIconDefault} />
+      </TouchableOpacity>
+
+      {open && (
+        <View testID="calendar-popover" style={styles.popover}>
+          <View style={styles.popoverHeader}>
+            <TouchableOpacity testID="prev-month" onPress={goPrev} style={styles.navBtn}>
+              <ChevronLeft size={16} color={Colors.light.text} />
+            </TouchableOpacity>
+            <Text style={styles.monthLabel}>{monthLabel}</Text>
+            <TouchableOpacity testID="next-month" onPress={goNext} style={styles.navBtn}>
+              <ChevronRight size={16} color={Colors.light.text} />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.weekHeader}>
+            {['L', 'M', 'X', 'J', 'V', 'S', 'D'].map((d) => (
+              <Text key={d} style={styles.weekHeaderText}>{d}</Text>
+            ))}
+          </View>
+          {matrix.map((week, i) => (
+            <View key={`w-${i}`} style={styles.weekRow}>
+              {week.map((cell, j) => {
+                if (!cell) return <View key={`c-${i}-${j}`} style={styles.dayCellEmpty} />;
+                const isSelected = startOfDay(cell).getTime() === startOfDay(value).getTime();
+                return (
+                  <TouchableOpacity
+                    testID={`day-${cell.getDate()}`}
+                    key={`c-${i}-${j}`}
+                    onPress={() => onSelect(cell)}
+                    style={[styles.dayCell, isSelected && styles.dayCellSelected]}
+                  >
+                    <Text style={[styles.dayText, isSelected && styles.dayTextSelected]}>
+                      {cell.getDate()}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
 export default function AgendaScreen() {
-  const [selectedDate] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(useToday());
   const insets = useSafeAreaInsets();
 
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     return date.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
-  };
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -98,12 +239,9 @@ export default function AgendaScreen() {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Date Selector */}
         <View style={styles.dateSection}>
           <Text style={styles.selectedDate}>{formatDate(selectedDate)}</Text>
-          <TouchableOpacity style={styles.changeDateButton}>
-            <Text style={styles.changeDateText}>Cambiar fecha</Text>
-          </TouchableOpacity>
+          <CalendarDropdown value={selectedDate} onChange={setSelectedDate} />
         </View>
 
         {/* Appointments List */}
@@ -113,25 +251,31 @@ export default function AgendaScreen() {
           {mockAppointments.length > 0 ? (
             <View style={styles.appointmentsList}>
               {mockAppointments.map((appointment) => (
-                <TouchableOpacity key={appointment.id} style={styles.appointmentCard}>
+                <TouchableOpacity
+                  testID={`appointment-${appointment.id}`}
+                  key={appointment.id}
+                  style={styles.appointmentCard}
+                >
                   <View style={styles.appointmentTime}>
                     <Text style={styles.timeText}>{appointment.time}</Text>
                   </View>
-                  
                   <View style={styles.appointmentDetails}>
                     <Text style={styles.patientName}>{appointment.patient}</Text>
                     <Text style={styles.serviceText}>{appointment.service}</Text>
                   </View>
-                  
                   <View style={styles.appointmentStatus}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(appointment.status) + '20' }
-                    ]}>
-                      <Text style={[
-                        styles.statusText,
-                        { color: getStatusColor(appointment.status) }
-                      ]}>
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: (getStatusColor(appointment.status) ?? Colors.light.text) + '20' },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusText,
+                          { color: getStatusColor(appointment.status) ?? Colors.light.text },
+                        ]}
+                      >
                         {getStatusText(appointment.status)}
                       </Text>
                     </View>
@@ -196,16 +340,98 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: Colors.light.text,
-    marginBottom: 8,
+    marginBottom: 12,
     textTransform: 'capitalize',
   },
-  changeDateButton: {
-    alignSelf: 'flex-start',
+  dropdownContainer: {
+    zIndex: 10,
+    maxWidth: 360,
   },
-  changeDateText: {
+  inputBox: {
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  inputText: {
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  popover: {
+    position: 'absolute',
+    top: 52,
+    left: 0,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: '#000000',
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+    width: 280,
+  },
+  popoverHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  navBtn: {
+    padding: 6,
+    borderRadius: 8,
+  },
+  monthLabel: {
     fontSize: 14,
-    color: Colors.light.tint,
-    fontWeight: '500',
+    fontWeight: '700',
+    color: Colors.light.text,
+    textTransform: 'capitalize',
+  },
+  weekHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  weekHeaderText: {
+    width: 36,
+    textAlign: 'center',
+    fontSize: 12,
+    color: Colors.light.tabIconDefault,
+  },
+  weekRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dayCell: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 3,
+  },
+  dayCellSelected: {
+    backgroundColor: Colors.light.tint,
+  },
+  dayText: {
+    fontSize: 14,
+    color: Colors.light.text,
+    fontWeight: '600',
+  },
+  dayTextSelected: {
+    color: Colors.light.surface,
+    fontWeight: '700',
+  },
+  dayCellEmpty: {
+    width: 36,
+    height: 36,
+    marginVertical: 3,
   },
   appointmentsSection: {
     marginBottom: 32,
