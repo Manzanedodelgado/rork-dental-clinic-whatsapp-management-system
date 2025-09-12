@@ -1,18 +1,17 @@
 import React from 'react';
-import { View, StyleSheet, Text } from 'react-native';
-import { DentalIcon } from './DentalIcon';
+import { View, StyleSheet } from 'react-native';
+import { RubioGarciaLogo } from './RubioGarciaLogo';
 import Colors from '@/constants/colors';
 
 type AppHeaderProps = {
   title?: string;
 };
 
-export const AppHeader: React.FC<AppHeaderProps> = ({ title = 'Dental Clinic' }) => {
+export const AppHeader: React.FC<AppHeaderProps> = ({ title = 'Rubio García Dental' }) => {
   return (
     <View style={styles.header}>
       <View style={styles.logoContainer}>
-        <DentalIcon variant="blue" size={32} />
-        <Text style={styles.title}>{title}</Text>
+        <RubioGarciaLogo variant="full" width={180} />
       </View>
     </View>
   );
@@ -28,10 +27,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
+    elevation: 2,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   logoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
   },
   title: {
     fontSize: 18,

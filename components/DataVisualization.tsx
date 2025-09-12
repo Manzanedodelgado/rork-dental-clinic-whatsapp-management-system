@@ -29,9 +29,9 @@ const DataVisualization = () => {
     const chartColors = [
       Colors.light.primary,
       Colors.light.primaryLight,
+      Colors.light.highlight,
       Colors.light.accent,
       Colors.light.success,
-      Colors.light.warning,
     ];
 
     return {
@@ -79,10 +79,10 @@ const DataVisualization = () => {
     const chartColors = [
       Colors.light.primary,
       Colors.light.primaryLight,
+      Colors.light.highlight,
       Colors.light.accent,
       Colors.light.success,
       Colors.light.warning,
-      Colors.light.error,
     ];
 
     return {
@@ -94,8 +94,6 @@ const DataVisualization = () => {
 
   const renderBarChart = (data: ChartData, title: string) => {
     const maxValue = Math.max(...data.values, 1);
-    const screenWidth = Dimensions.get('window').width;
-    const chartWidth = screenWidth - 40; // Accounting for padding
     
     return (
       <View style={styles.chartContainer}>
@@ -202,16 +200,18 @@ const styles = StyleSheet.create({
   statCard: {
     flex: 1,
     backgroundColor: Colors.light.surface,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
     marginHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 3,
+    borderLeftWidth: 4,
+    borderLeftColor: Colors.light.primary,
   },
   statValue: {
     fontSize: 24,
@@ -225,20 +225,22 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     backgroundColor: Colors.light.surface,
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 16,
-    marginVertical: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    marginVertical: 12,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3,
+    elevation: 3,
+    borderTopWidth: 4,
+    borderTopColor: Colors.light.primary,
   },
   chartTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 16,
-    color: Colors.light.text,
+    color: Colors.light.primary,
   },
   chart: {
     width: '100%',
@@ -289,6 +291,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.primary,
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   pieChartTotal: {
     color: 'white',

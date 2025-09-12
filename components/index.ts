@@ -4,4 +4,5 @@ export { default as AppointmentStats } from './AppointmentStats';
 export { default as PatientStats } from './PatientStats';
 export { default as SyncStatus } from './SyncStatus';
 export { default as DentalIcon } from './DentalIcon';
+export { default as RubioGarciaLogo } from './RubioGarciaLogo';
 export { default as AppHeader } from './AppHeader';

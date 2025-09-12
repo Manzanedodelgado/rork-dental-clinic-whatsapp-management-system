@@ -149,15 +149,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 8,
+    paddingBottom: 12,
     backgroundColor: Colors.light.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
+    elevation: 2,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   title: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: Colors.light.text,
+    color: Colors.light.primary,
   },
   syncInfo: {
     flexDirection: 'row',
@@ -175,6 +180,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.surface,
     borderBottomWidth: 1,
     borderBottomColor: Colors.light.border,
+    elevation: 1,
+    shadowColor: Colors.light.primary,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
   },
   tab: {
     flex: 1,
@@ -184,8 +194,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
   },
   activeTab: {
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: Colors.light.primary,
+    backgroundColor: 'rgba(43, 123, 192, 0.05)',
   },
   tabText: {
     fontSize: 14,
@@ -198,6 +209,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+    padding: 12,
   },
 });
 

@@ -2,8 +2,7 @@ import { Tabs } from "expo-router";
 import { Image, View, StyleSheet } from "react-native";
 import React from "react";
 import Colors from "@/constants/colors";
-import { DentalIcon } from "@/components";
-import { DENTAL_ICONS } from "@/constants/icons";
+import { AppHeader } from "@/components";
 
 const CustomIcon = ({ source, color, size }: { source: string; color: string; size: number }) => (
   <View style={[styles.iconContainer, { width: size, height: size }]}>
@@ -29,16 +28,22 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors.light.tint,
-        tabBarInactiveTintColor: Colors.light.tabIconDefault,
-        headerShown: false,
+        tabBarActiveTintColor: Colors.light.primary,
+        tabBarInactiveTintColor: Colors.light.secondary,
+        headerShown: true,
+        header: () => <AppHeader />,
         tabBarStyle: {
           backgroundColor: Colors.light.surface,
           borderTopColor: Colors.light.border,
+          elevation: 8,
+          shadowColor: Colors.light.primary,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 3,
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: '500',
+          fontWeight: '600',
         },
       }}
     >
