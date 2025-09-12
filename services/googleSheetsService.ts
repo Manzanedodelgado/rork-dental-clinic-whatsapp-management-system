@@ -27,7 +27,7 @@ export class GoogleSheetsService {
         return { appointments, patients };
       }
       
-      // If no data received, use mock data
+      // If no data received, use mock data without throwing error
       console.log('📋 No data from Google Sheets, using mock data');
       const mockAppointments = this.generateMockAppointments();
       const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
