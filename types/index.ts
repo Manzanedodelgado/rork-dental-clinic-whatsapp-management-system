@@ -12,17 +12,24 @@ export interface Patient {
 
 export interface Appointment {
   id: string;
+  registro: string;
   patientId: string;
   patientName: string;
+  apellidos: string;
+  nombre: string;
   date: string;
   time: string;
   treatment: string;
-  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+  status: 'Desconocido' | 'Planificada' | 'Finalizada' | 'Cancelada' | 'No asistió';
   notes?: string;
   duration?: number;
   dentist?: string;
   startDateTime?: string;
   endDateTime?: string;
+  fechaAlta: string;
+  citMod: string;
+  telMovil?: string;
+  estadoCita: string;
 }
 
 export interface GoogleSheetsAppointment {
@@ -42,6 +49,12 @@ export interface GoogleSheetsAppointment {
   Duracion: string;
   FechaHoraIni: string;
   FechaHoraFin: string;
+}
+
+export interface AppointmentSyncInfo {
+  isNew: boolean;
+  isModified: boolean;
+  needsUpdate: boolean;
 }
 
 export interface WhatsAppMessage {

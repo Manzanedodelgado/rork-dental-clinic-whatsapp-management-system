@@ -1,4 +1,4 @@
-import type { GoogleSheetsAppointment, Appointment, Patient } from '@/types';
+import type { GoogleSheetsAppointment, Appointment, Patient, AppointmentSyncInfo } from '@/types';
 
 const GOOGLE_SHEETS_ID = '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ';
 const SHEET_NAME = 'Hoja 1';
@@ -127,25 +127,34 @@ export class GoogleSheetsService {
         }
       }
 
-      // Map status
-      const status = this.mapStatus(row.EstadoCita);
-
       // Generate patient ID from patient number or name
       const patientId = row.NumPac || `patient_${row.Nombre.replace(/\s+/g, '_').toLowerCase()}`;
 
+      // Store phone number for later use
+      if (row.TelMovil) {
+        this.storePhoneNumber(patientId, row.TelMovil);
+      }
+
       return {
         id: row.Registro || `apt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        registro: row.Registro,
         patientId,
         patientName: `${row.Nombre} ${row.Apellidos}`.trim(),
+        apellidos: row.Apellidos,
+        nombre: row.Nombre,
         date: formattedDate,
         time: formattedTime,
         treatment: row.Tratamiento || 'Consulta general',
-        status,
+        status: row.EstadoCita as any || 'Desconocido',
         notes: row.Notas,
         duration: row.Duracion ? parseInt(row.Duracion) : undefined,
         dentist: row.Odontologo,
         startDateTime: row.FechaHoraIni,
         endDateTime: row.FechaHoraFin,
+        fechaAlta: row.FechaAlta,
+        citMod: row.CitMod,
+        telMovil: row.TelMovil,
+        estadoCita: row.EstadoCita,
       };
     } catch (error) {
       console.warn('Error converting row to appointment:', error);
@@ -153,24 +162,38 @@ export class GoogleSheetsService {
     }
   }
 
-  private static mapStatus(estadoCita: string): 'scheduled' | 'completed' | 'cancelled' | 'no-show' {
-    const status = estadoCita?.toLowerCase() || '';
+  static getSyncInfo(appointment: Appointment): AppointmentSyncInfo {
+    const fechaAlta = new Date(appointment.fechaAlta);
+    const citMod = new Date(appointment.citMod);
     
-    if (status.includes('programad') || status.includes('citad') || status === 'pendiente') {
-      return 'scheduled';
+    const isNew = fechaAlta.getTime() === citMod.getTime();
+    const isModified = !isNew;
+    const needsUpdate = isModified;
+    
+    return {
+      isNew,
+      isModified,
+      needsUpdate
+    };
+  }
+
+  static getStatusColor(status: string): string {
+    const statusLower = status?.toLowerCase() || '';
+    
+    if (statusLower.includes('planificad') || statusLower.includes('programad')) {
+      return '#3B82F6'; // Blue
     }
-    if (status.includes('completad') || status.includes('realizad') || status.includes('atendid')) {
-      return 'completed';
+    if (statusLower.includes('finalizad') || statusLower.includes('completad')) {
+      return '#10B981'; // Green
     }
-    if (status.includes('cancelad') || status.includes('anulad')) {
-      return 'cancelled';
+    if (statusLower.includes('cancelad')) {
+      return '#EF4444'; // Red
     }
-    if (status.includes('no') && (status.includes('asisti') || status.includes('vino'))) {
-      return 'no-show';
+    if (statusLower.includes('no') && statusLower.includes('asisti')) {
+      return '#F59E0B'; // Orange
     }
     
-    // Default to scheduled for unknown statuses
-    return 'scheduled';
+    return '#6B7280'; // Gray for unknown
   }
 
   private static extractPatientsFromAppointments(appointments: Appointment[]): Patient[] {
@@ -185,10 +208,10 @@ export class GoogleSheetsService {
         patientsMap.set(appointment.patientId, {
           id: appointment.patientId,
           name: appointment.patientName,
-          phone: phoneMap.get(appointment.patientId) || '+34 000 000 000',
+          phone: appointment.telMovil || this.getPhoneNumber(appointment.patientId),
           appointments: [],
-          lastVisit: appointment.status === 'completed' ? appointment.date : undefined,
-          nextAppointment: appointment.status === 'scheduled' ? appointment.date : undefined,
+          lastVisit: appointment.status?.toLowerCase().includes('finalizad') ? appointment.date : undefined,
+          nextAppointment: appointment.status?.toLowerCase().includes('planificad') ? appointment.date : undefined,
         });
       }
 
@@ -196,13 +219,14 @@ export class GoogleSheetsService {
       const patient = patientsMap.get(appointment.patientId)!;
       patient.appointments.push(appointment);
 
-      // Update last visit and next appointment
-      if (appointment.status === 'completed') {
+      // Update last visit and next appointment based on Spanish status
+      const statusLower = appointment.status?.toLowerCase() || '';
+      if (statusLower.includes('finalizad') || statusLower.includes('completad')) {
         if (!patient.lastVisit || appointment.date > patient.lastVisit) {
           patient.lastVisit = appointment.date;
         }
       }
-      if (appointment.status === 'scheduled') {
+      if (statusLower.includes('planificad') || statusLower.includes('programad')) {
         if (!patient.nextAppointment || appointment.date < patient.nextAppointment) {
           patient.nextAppointment = appointment.date;
         }

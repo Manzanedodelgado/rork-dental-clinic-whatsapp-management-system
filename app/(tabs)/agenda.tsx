@@ -9,9 +9,10 @@ import {
   TextInput,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, Plus, User, Edit3, ChevronLeft, ChevronRight, RefreshCw, Wifi, WifiOff } from 'lucide-react-native';
+import { Calendar, Plus, User, Edit3, ChevronLeft, ChevronRight, RefreshCw, Wifi, WifiOff, Clock, Phone, Stethoscope, FileText, AlertCircle } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useClinic } from '@/hooks/useClinicStore';
+import { GoogleSheetsService } from '@/services/googleSheetsService';
 import type { Appointment } from '@/types';
 
 
@@ -34,10 +35,11 @@ interface NewAppointment {
 }
 
 const APPOINTMENT_STATUSES = [
-  { key: 'scheduled', label: 'Programada', color: Colors.light.primary },
-  { key: 'completed', label: 'Completada', color: '#10B981' },
-  { key: 'cancelled', label: 'Cancelada', color: '#EF4444' },
-  { key: 'no-show', label: 'No asistió', color: '#F59E0B' },
+  { key: 'Planificada', label: 'Planificada', color: '#3B82F6' },
+  { key: 'Finalizada', label: 'Finalizada', color: '#10B981' },
+  { key: 'Cancelada', label: 'Cancelada', color: '#EF4444' },
+  { key: 'No asistió', label: 'No asistió', color: '#F59E0B' },
+  { key: 'Desconocido', label: 'Desconocido', color: '#6B7280' },
 ] as const;
 
 const TIME_SLOTS = [
@@ -186,14 +188,20 @@ export default function AgendaScreen() {
 
     const appointment: Appointment = {
       id: Date.now().toString(),
+      registro: Date.now().toString(),
       patientId: 'new-' + Date.now(),
       patientName: newAppointment.patientName,
+      apellidos: '',
+      nombre: newAppointment.patientName,
       date: selectedDate,
       time: newAppointment.time,
       treatment: newAppointment.treatment,
-      status: 'scheduled',
+      status: 'Planificada',
       notes: newAppointment.notes,
-      duration: newAppointment.duration
+      duration: newAppointment.duration,
+      fechaAlta: new Date().toISOString(),
+      citMod: new Date().toISOString(),
+      estadoCita: 'Planificada'
     };
 
     console.log('Creating new appointment:', appointment);
@@ -217,7 +225,10 @@ export default function AgendaScreen() {
     const sanitizedId = appointmentId.trim();
     const sanitizedStatus = newStatus.trim();
     console.log('Updating appointment status:', sanitizedId, sanitizedStatus);
-    console.log('Éxito: Estado de la cita actualizado');
+    console.log('Éxito: Estado de la cita actualizado a:', sanitizedStatus);
+    
+    // TODO: Implement actual status update to Google Sheets
+    // This would require a backend service to update the sheet
   };
 
   const formatDate = (dateString: string) => {
@@ -262,11 +273,23 @@ export default function AgendaScreen() {
   };
 
   const getStatusColor = (status: Appointment['status']) => {
-    return APPOINTMENT_STATUSES.find(s => s.key === status)?.color || Colors.light.primary;
+    return GoogleSheetsService.getStatusColor(status);
   };
 
   const getStatusLabel = (status: Appointment['status']) => {
     return APPOINTMENT_STATUSES.find(s => s.key === status)?.label || status;
+  };
+
+  const getSyncIndicator = (appointment: Appointment) => {
+    if (!appointment.fechaAlta || !appointment.citMod) return null;
+    
+    const syncInfo = GoogleSheetsService.getSyncInfo(appointment);
+    if (syncInfo.isNew) {
+      return { icon: 'new', color: '#10B981', label: 'Nueva' };
+    } else if (syncInfo.isModified) {
+      return { icon: 'modified', color: '#F59E0B', label: 'Modificada' };
+    }
+    return null;
   };
 
   return (
@@ -428,65 +451,113 @@ export default function AgendaScreen() {
               <Text style={styles.appointmentsCount}>
                 {selectedDateAppointments.length} cita{selectedDateAppointments.length !== 1 ? 's' : ''}
               </Text>
-              {selectedDateAppointments.map((appointment, index) => (
-                <View key={appointment.id || index} style={styles.appointmentCard}>
-                  <View style={styles.appointmentHeader}>
-                    <View style={styles.appointmentTime}>
-                      <View style={[styles.timeIndicator, { backgroundColor: getStatusColor(appointment.status) }]} />
-                      <Text style={styles.appointmentTimeText}>{appointment.time || 'Sin hora'}</Text>
-                      {appointment.duration && (
-                        <Text style={styles.appointmentDuration}>({appointment.duration}min)</Text>
-                      )}
-                    </View>
-                    <TouchableOpacity
-                      style={styles.editButton}
-                      onPress={() => {
-                        if (appointment?.id?.trim() && appointment.id.length <= 100 && appointment.patientName?.trim() && appointment.patientName.length <= 200) {
-                          setEditingAppointment(appointment);
-                        }
-                      }}
-                    >
-                      <Edit3 size={16} color={Colors.light.tabIconDefault} />
-                    </TouchableOpacity>
-                  </View>
-                  
-                  <View style={styles.appointmentInfo}>
-                    <View style={styles.appointmentPatient}>
-                      <User size={16} color={Colors.light.text} />
-                      <Text style={styles.appointmentPatientName}>{appointment.patientName}</Text>
-                    </View>
-                    <Text style={styles.appointmentTreatment}>{appointment.treatment}</Text>
-                    {appointment.dentist && (
-                      <Text style={styles.appointmentDentist}>Dr. {appointment.dentist}</Text>
-                    )}
-                    {appointment.notes && (
-                      <Text style={styles.appointmentNotes}>{appointment.notes}</Text>
-                    )}
-                  </View>
-
-                  <View style={styles.appointmentFooter}>
-                    <View style={[
-                      styles.statusBadge,
-                      { backgroundColor: getStatusColor(appointment.status) + '15' }
-                    ]}>
-                      <View style={[styles.statusDot, { backgroundColor: getStatusColor(appointment.status) }]} />
-                      <Text style={[
-                        styles.statusText,
-                        { color: getStatusColor(appointment.status) }
-                      ]}>
-                        {getStatusLabel(appointment.status)}
-                      </Text>
+              {selectedDateAppointments.map((appointment, index) => {
+                const syncIndicator = getSyncIndicator(appointment);
+                
+                return (
+                  <View key={appointment.id || index} style={styles.appointmentCard}>
+                    {/* Header with time and sync indicator */}
+                    <View style={styles.appointmentHeader}>
+                      <View style={styles.appointmentTime}>
+                        <View style={[styles.timeIndicator, { backgroundColor: getStatusColor(appointment.status) }]} />
+                        <Clock size={16} color={Colors.light.text} />
+                        <Text style={styles.appointmentTimeText}>{appointment.time || 'Sin hora'}</Text>
+                        {appointment.duration && (
+                          <Text style={styles.appointmentDuration}>({appointment.duration}min)</Text>
+                        )}
+                      </View>
+                      
+                      <View style={styles.appointmentHeaderRight}>
+                        {syncIndicator && (
+                          <View style={[styles.syncIndicator, { backgroundColor: syncIndicator.color + '20' }]}>
+                            <AlertCircle size={12} color={syncIndicator.color} />
+                            <Text style={[styles.syncIndicatorText, { color: syncIndicator.color }]}>
+                              {syncIndicator.label}
+                            </Text>
+                          </View>
+                        )}
+                        <TouchableOpacity
+                          style={styles.editButton}
+                          onPress={() => {
+                            if (appointment?.id?.trim() && appointment.id.length <= 100 && appointment.patientName?.trim() && appointment.patientName.length <= 200) {
+                              setEditingAppointment(appointment);
+                            }
+                          }}
+                        >
+                          <Edit3 size={16} color={Colors.light.tabIconDefault} />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                     
-                    <TouchableOpacity
-                      style={styles.changeStatusButton}
-                      onPress={() => setEditingAppointment(appointment)}
-                    >
-                      <Text style={styles.changeStatusText}>Cambiar estado</Text>
-                    </TouchableOpacity>
+                    {/* Patient Information */}
+                    <View style={styles.appointmentInfo}>
+                      <View style={styles.appointmentPatient}>
+                        <User size={18} color={Colors.light.primary} />
+                        <View style={styles.patientDetails}>
+                          <Text style={styles.appointmentPatientName}>
+                            {appointment.nombre} {appointment.apellidos}
+                          </Text>
+                          {appointment.telMovil && (
+                            <View style={styles.phoneContainer}>
+                              <Phone size={14} color={Colors.light.tabIconDefault} />
+                              <Text style={styles.phoneText}>{appointment.telMovil}</Text>
+                            </View>
+                          )}
+                        </View>
+                      </View>
+                      
+                      {/* Treatment */}
+                      <View style={styles.treatmentContainer}>
+                        <Stethoscope size={16} color={Colors.light.accent} />
+                        <Text style={styles.appointmentTreatment}>{appointment.treatment}</Text>
+                      </View>
+                      
+                      {/* Dentist */}
+                      {appointment.dentist && (
+                        <Text style={styles.appointmentDentist}>Dr. {appointment.dentist}</Text>
+                      )}
+                      
+                      {/* Notes */}
+                      {appointment.notes && (
+                        <View style={styles.notesContainer}>
+                          <FileText size={14} color={Colors.light.tabIconDefault} />
+                          <Text style={styles.appointmentNotes}>{appointment.notes}</Text>
+                        </View>
+                      )}
+                      
+                      {/* Registration Info */}
+                      <View style={styles.registrationInfo}>
+                        <Text style={styles.registrationText}>Registro: {appointment.registro}</Text>
+                        {appointment.fechaAlta && (
+                          <Text style={styles.registrationText}>
+                            Creada: {new Date(appointment.fechaAlta).toLocaleDateString('es-ES')}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+
+                    {/* Footer with status */}
+                    <View style={styles.appointmentFooter}>
+                      <TouchableOpacity
+                        style={[
+                          styles.statusBadge,
+                          { backgroundColor: getStatusColor(appointment.status) + '15' }
+                        ]}
+                        onPress={() => setEditingAppointment(appointment)}
+                      >
+                        <View style={[styles.statusDot, { backgroundColor: getStatusColor(appointment.status) }]} />
+                        <Text style={[
+                          styles.statusText,
+                          { color: getStatusColor(appointment.status) }
+                        ]}>
+                          {getStatusLabel(appointment.status)}
+                        </Text>
+                        <Edit3 size={12} color={getStatusColor(appointment.status)} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
         </View>
@@ -915,6 +986,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
+  },
+  appointmentHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  syncIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  syncIndicatorText: {
+    fontSize: 10,
+    fontWeight: '600',
   },
   timeIndicator: {
     width: 4,
@@ -945,9 +1034,47 @@ const styles = StyleSheet.create({
   },
   appointmentPatient: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 12,
+  },
+  patientDetails: {
+    flex: 1,
+  },
+  phoneContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  phoneText: {
+    fontSize: 12,
+    color: Colors.light.tabIconDefault,
+  },
+  treatmentContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  notesContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 6,
-    marginBottom: 4,
+    marginTop: 8,
+  },
+  registrationInfo: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  registrationText: {
+    fontSize: 11,
+    color: Colors.light.tabIconDefault,
+    fontWeight: '500',
   },
   appointmentPatientName: {
     fontSize: 16,
@@ -955,27 +1082,29 @@ const styles = StyleSheet.create({
     color: Colors.light.text,
   },
   appointmentTreatment: {
-    fontSize: 14,
+    fontSize: 15,
     color: Colors.light.text,
-    marginBottom: 4,
+    fontWeight: '500',
+    flex: 1,
   },
   appointmentNotes: {
-    fontSize: 12,
+    fontSize: 13,
     color: Colors.light.tabIconDefault,
     fontStyle: 'italic',
+    flex: 1,
+    lineHeight: 18,
   },
   appointmentFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginTop: 4,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
     borderRadius: 20,
-    gap: 6,
+    gap: 8,
+    flex: 1,
   },
   statusDot: {
     width: 8,
@@ -986,19 +1115,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  changeStatusButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    backgroundColor: Colors.light.background,
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-  changeStatusText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: Colors.light.primary,
-  },
+
   modalContainer: {
     flex: 1,
     backgroundColor: Colors.light.background,
