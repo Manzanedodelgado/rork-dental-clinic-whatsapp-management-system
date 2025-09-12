@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,31 +6,104 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { 
+  Calendar, 
   MessageSquare, 
   Users, 
+  Clock, 
   Phone,
   RefreshCw,
+  Wifi,
+  WifiOff,
+  AlertCircle,
+  Database,
+  Plus,
+  Edit3,
+  Activity,
   CheckCircle
 } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useClinic } from '@/hooks/useClinicStore';
+import { SQLServerService } from '@/services/sqlServerService';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const { 
+    todayAppointments, 
     unreadMessagesCount, 
     patients, 
     conversations,
     isLoading,
-    isConnected
+    lastSyncTime,
+    syncError,
+    isConnected,
+    isSyncing,
+    syncNow,
+    newAppointments,
+    updatedAppointments
   } = useClinic();
+  
+  const [syncStatsData, setSyncStatsData] = useState<{ totalAppointments: number }>({ totalAppointments: 0 });
+  
+  // Get sync stats
+  React.useEffect(() => {
+    const getSyncStats = async () => {
+      try {
+        const stats = await SQLServerService.getSyncStats();
+        setSyncStatsData({ totalAppointments: stats.totalAppointments });
+      } catch (error) {
+        console.error('Error getting sync stats:', error);
+      }
+    };
+    getSyncStats();
+  }, []);
 
-
+  const handleVerifySync = async () => {
+    setIsVerifying(true);
+    try {
+      const result = await SQLServerService.verifySyncStatus();
+      
+      Alert.alert(
+        'Estado de Sincronización SQL',
+        result.message + '\n\n' +
+        `📊 Total citas: ${result.details.totalAppointments}\n` +
+        `🆕 Citas nuevas: ${result.details.newAppointments}\n` +
+        `🔄 Citas actualizadas: ${result.details.updatedAppointments}\n` +
+        `⏰ Última sync: ${result.details.lastSync || 'Nunca'}\n` +
+        `🔗 Estado: ${result.details.connectionStatus}`,
+        [
+          { text: 'OK' },
+          { 
+            text: 'Sincronizar Ahora', 
+            onPress: () => syncNow(),
+            style: 'default'
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert(
+        'Error de Verificación',
+        `No se pudo verificar el estado: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsVerifying(false);
+    }
+  };
 
   const stats = [
+    {
+      id: 'appointments',
+      title: 'Citas Hoy',
+      value: todayAppointments.length.toString(),
+      icon: Calendar,
+      color: Colors.light.primary,
+      bgColor: Colors.light.primary + '15',
+    },
     {
       id: 'messages',
       title: 'Mensajes Pendientes',
@@ -85,15 +158,83 @@ export default function HomeScreen() {
               <Text style={styles.clinicSubtitle}>Implantología y estética de vanguardia</Text>
             </View>
             <View style={styles.headerActions}>
-              {isConnected ? (
-                <CheckCircle color={Colors.light.success} size={20} />
-              ) : (
-                <RefreshCw color={Colors.light.error} size={20} />
-              )}
+              <TouchableOpacity 
+                style={styles.verifyButton} 
+                onPress={handleVerifySync}
+                disabled={isVerifying}
+              >
+                <Activity 
+                  color={Colors.light.primary} 
+                  size={18} 
+                  style={isVerifying ? styles.spinning : undefined}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.syncButton} 
+                onPress={() => syncNow()}
+                disabled={isSyncing}
+              >
+                <RefreshCw 
+                  color={isConnected ? Colors.light.success : Colors.light.error} 
+                  size={20} 
+                  style={isSyncing ? styles.spinning : undefined}
+                />
+              </TouchableOpacity>
             </View>
           </View>
           
-
+          {/* Sync Status */}
+          <View style={styles.syncStatus}>
+            <View style={styles.connectionStatus}>
+              <Database color={Colors.light.primary} size={16} />
+              <Text style={styles.connectionText}>
+                SQL Server - {syncStatsData.totalAppointments} registros
+              </Text>
+              {isConnected ? (
+                <CheckCircle color={Colors.light.success} size={14} style={styles.connectionIcon} />
+              ) : (
+                <AlertCircle color={Colors.light.error} size={14} style={styles.connectionIcon} />
+              )}
+            </View>
+            
+            {lastSyncTime && (
+              <Text style={styles.lastSyncText}>
+                Última sincronización: {lastSyncTime.toLocaleTimeString('es-ES', {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </Text>
+            )}
+            
+            {/* New and Updated Appointments Info */}
+            {(newAppointments.length > 0 || updatedAppointments.length > 0) && (
+              <View style={styles.changesContainer}>
+                {newAppointments.length > 0 && (
+                  <View style={styles.changeItem}>
+                    <Plus color={Colors.light.success} size={12} />
+                    <Text style={styles.changeText}>
+                      {newAppointments.length} nuevas
+                    </Text>
+                  </View>
+                )}
+                {updatedAppointments.length > 0 && (
+                  <View style={styles.changeItem}>
+                    <Edit3 color={Colors.light.warning} size={12} />
+                    <Text style={styles.changeText}>
+                      {updatedAppointments.length} actualizadas
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+            
+            {syncError && (
+              <View style={styles.errorContainer}>
+                <AlertCircle color={Colors.light.error} size={14} />
+                <Text style={styles.errorText}>{syncError}</Text>
+              </View>
+            )}
+          </View>
           
           <View style={styles.dateContainer}>
             <Text style={styles.dateText}>{new Date().toLocaleDateString('es-ES', {
@@ -118,9 +259,79 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {/* SQL Server Sync Info */}
+        {(newAppointments.length > 0 || updatedAppointments.length > 0) && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Cambios Recientes</Text>
+            <View style={styles.changesGrid}>
+              {newAppointments.length > 0 && (
+                <View style={styles.changeCard}>
+                  <View style={styles.changeCardHeader}>
+                    <Plus color={Colors.light.success} size={20} />
+                    <Text style={styles.changeCardTitle}>Citas Nuevas</Text>
+                  </View>
+                  <Text style={styles.changeCardValue}>{newAppointments.length}</Text>
+                  <Text style={styles.changeCardSubtitle}>Desde última sincronización</Text>
+                </View>
+              )}
+              {updatedAppointments.length > 0 && (
+                <View style={styles.changeCard}>
+                  <View style={styles.changeCardHeader}>
+                    <Edit3 color={Colors.light.warning} size={20} />
+                    <Text style={styles.changeCardTitle}>Actualizadas</Text>
+                  </View>
+                  <Text style={styles.changeCardValue}>{updatedAppointments.length}</Text>
+                  <Text style={styles.changeCardSubtitle}>Modificaciones detectadas</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
 
-
-
+        {/* Today's Appointments */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Citas de Hoy</Text>
+            <TouchableOpacity>
+              <Text style={styles.seeAllText}>Ver todas</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {todayAppointments.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Calendar color={Colors.light.textSecondary} size={48} />
+              <Text style={styles.emptyStateText}>No hay citas programadas para hoy</Text>
+              <Text style={styles.emptyStateSubtext}>
+                {new Date().toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.appointmentsList}>
+              {todayAppointments.slice(0, 3).map((appointment) => (
+                <TouchableOpacity key={appointment.id} style={styles.appointmentCard}>
+                  <View style={styles.appointmentTime}>
+                    <Clock color={Colors.light.primary} size={16} />
+                    <Text style={styles.appointmentTimeText}>{appointment.time || 'Sin hora'}</Text>
+                  </View>
+                  <View style={styles.appointmentDetails}>
+                    <Text style={styles.appointmentPatient}>{appointment.patientName}</Text>
+                    <Text style={styles.appointmentTreatment}>{appointment.treatment}</Text>
+                    {appointment.dentist && (
+                      <Text style={styles.appointmentDentist}>Dr. {appointment.dentist}</Text>
+                    )}
+                  </View>
+                  <View style={[styles.appointmentStatus, 
+                    { backgroundColor: getStatusColor(appointment.status) + '20' }]}>
+                    <Text style={[styles.appointmentStatusText, 
+                      { color: getStatusColor(appointment.status) }]}>
+                      {getStatusText(appointment.status)}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
 
         {/* Recent Messages */}
         <View style={styles.section}>
@@ -178,7 +389,10 @@ export default function HomeScreen() {
               <Users color={Colors.light.primary} size={24} />
               <Text style={styles.quickActionText}>Nuevo Paciente</Text>
             </TouchableOpacity>
-
+            <TouchableOpacity style={styles.quickActionButton}>
+              <Calendar color={Colors.light.primary} size={24} />
+              <Text style={styles.quickActionText}>Nueva Cita</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.quickActionButton}>
               <MessageSquare color={Colors.light.primary} size={24} />
               <Text style={styles.quickActionText}>Mensaje Masivo</Text>
@@ -190,7 +404,25 @@ export default function HomeScreen() {
   );
 }
 
+function getStatusColor(status: string): string {
+  switch (status) {
+    case 'scheduled': return Colors.light.primary;
+    case 'completed': return Colors.light.success;
+    case 'cancelled': return Colors.light.error;
+    case 'no-show': return Colors.light.warning;
+    default: return Colors.light.textSecondary;
+  }
+}
 
+function getStatusText(status: string): string {
+  switch (status) {
+    case 'scheduled': return 'Programada';
+    case 'completed': return 'Completada';
+    case 'cancelled': return 'Cancelada';
+    case 'no-show': return 'No asistió';
+    default: return 'Desconocido';
+  }
+}
 
 const styles = StyleSheet.create({
   container: {

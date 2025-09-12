@@ -2,9 +2,46 @@ export interface Patient {
   id: string;
   name: string;
   phone: string;
-  email: string;
-  lastVisit: string;
-  notes: string;
+  email?: string;
+  lastVisit?: string;
+  nextAppointment?: string;
+  notes?: string;
+  avatar?: string;
+  appointments: Appointment[];
+}
+
+export interface Appointment {
+  id: string;
+  patientId: string;
+  patientName: string;
+  date: string;
+  time: string;
+  treatment: string;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'no-show';
+  notes?: string;
+  duration?: number;
+  dentist?: string;
+  startDateTime?: string;
+  endDateTime?: string;
+}
+
+export interface GoogleSheetsAppointment {
+  Registro: string;
+  CitMod: string;
+  FechaAlta: string;
+  NumPac: string;
+  Apellidos: string;
+  Nombre: string;
+  TelMovil: string;
+  Fecha: string;
+  Hora: string;
+  EstadoCita: string;
+  Tratamiento: string;
+  Odontologo: string;
+  Notas: string;
+  Duracion: string;
+  FechaHoraIni: string;
+  FechaHoraFin: string;
 }
 
 export interface WhatsAppMessage {
@@ -29,17 +66,18 @@ export interface MessageTemplate {
   id: string;
   name: string;
   content: string;
-  category: string;
+  category: 'reminder' | 'confirmation' | 'consent' | 'general';
   variables: string[];
 }
 
 export interface Automation {
   id: string;
   name: string;
-  trigger: 'consultation_reminder' | 'post_treatment' | string;
+  trigger: 'appointment_reminder' | 'post_treatment' | 'birthday' | 'manual';
   templateId: string;
   timing: string;
   isActive: boolean;
+  conditions?: any;
 }
 
 export interface AIConfig {
