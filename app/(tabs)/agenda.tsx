@@ -432,7 +432,7 @@ export default function AgendaScreen() {
         <View style={styles.calendar}>
           {/* Week days header - Starting with Monday */}
           <View style={styles.weekDaysHeader}>
-            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
+            {['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'].map((day) => (
               <View key={day} style={styles.weekDayContainer}>
                 <Text style={styles.weekDayText}>{day}</Text>
               </View>
@@ -451,9 +451,7 @@ export default function AgendaScreen() {
                   style={[
                     styles.calendarDay,
                     !day.isCurrentMonth && styles.calendarDayInactive,
-                    day.isToday && styles.calendarDayToday,
                     isSelected && styles.calendarDaySelected,
-                    hasAppointments && !isSelected && styles.calendarDayWithAppointments,
                   ]}
                   onPress={() => setSelectedDate(day.date)}
                   activeOpacity={0.7}
@@ -461,16 +459,12 @@ export default function AgendaScreen() {
                   <Text style={[
                     styles.calendarDayText,
                     !day.isCurrentMonth && styles.calendarDayTextInactive,
-                    day.isToday && !isSelected && styles.calendarDayTextToday,
                     isSelected && styles.calendarDayTextSelected,
                   ]}>
                     {day.day}
                   </Text>
                   {hasAppointments && (
-                    <View style={[
-                      styles.appointmentIndicator,
-                      isSelected && styles.appointmentIndicatorSelected
-                    ]}>
+                    <View style={styles.appointmentIndicator}>
                       <View style={styles.appointmentDot} />
                     </View>
                   )}
@@ -894,29 +888,25 @@ const styles = StyleSheet.create({
   },
   calendar: {
     backgroundColor: Colors.light.surface,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 8,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    marginHorizontal: 0,
+    marginBottom: 0,
+    borderRadius: 0,
+    padding: 16,
   },
   weekDaysHeader: {
     flexDirection: 'row',
-    marginBottom: 4,
+    marginBottom: 8,
+    paddingBottom: 8,
   },
   weekDayContainer: {
     flex: 1,
     alignItems: 'center',
+    paddingVertical: 4,
   },
   weekDayText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '500',
     color: Colors.light.tabIconDefault,
-    textTransform: 'uppercase',
   },
   calendarGrid: {
     flexDirection: 'row',
@@ -924,61 +914,45 @@ const styles = StyleSheet.create({
   },
   calendarDay: {
     width: '14.28%',
-    height: 32,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
-    marginBottom: 2,
-    borderRadius: 6,
+    marginBottom: 4,
+    borderRadius: 8,
   },
   calendarDayInactive: {
-    opacity: 0.3,
+    opacity: 0.4,
   },
-  calendarDayToday: {
-    backgroundColor: Colors.light.primary + '15',
-    borderWidth: 2,
-    borderColor: Colors.light.primary,
-  },
+
   calendarDaySelected: {
-    backgroundColor: Colors.light.primary,
-    shadowColor: Colors.light.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    backgroundColor: '#4A90E2',
   },
-  calendarDayWithAppointments: {
-    backgroundColor: Colors.light.accent + '10',
-  },
+
   calendarDayText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '400',
     color: Colors.light.text,
   },
   calendarDayTextInactive: {
-    color: Colors.light.tabIconDefault,
+    color: '#C7C7CC',
   },
-  calendarDayTextToday: {
-    color: Colors.light.primary,
-    fontWeight: '600',
-  },
+
   calendarDayTextSelected: {
-    color: Colors.light.surface,
-    fontWeight: '600',
+    color: '#FFFFFF',
+    fontWeight: '500',
   },
   appointmentIndicator: {
     position: 'absolute',
-    bottom: 2,
+    bottom: 6,
     alignSelf: 'center',
   },
-  appointmentIndicatorSelected: {
-    bottom: 3,
-  },
+
   appointmentDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: Colors.light.accent,
+    backgroundColor: '#34C759',
   },
   selectedDateSection: {
     flex: 1,
