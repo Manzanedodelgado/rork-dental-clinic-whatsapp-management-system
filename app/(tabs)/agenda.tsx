@@ -267,19 +267,19 @@ export default function AgendaScreen() {
       // Parse date correctly to avoid timezone issues
       const [year, month, day] = dateString.split('-').map(Number);
       
-      // Create date at noon to avoid timezone issues
-      const date = new Date(year, month - 1, day, 12, 0, 0);
+      // Create date using UTC to avoid timezone shifts
+      const date = new Date(Date.UTC(year, month - 1, day));
       
       console.log('🗓️ Formatting date:', dateString, '-> Date object:', date);
-      console.log('🗓️ Day of week (0=Sunday):', date.getDay());
+      console.log('🗓️ Day of week (0=Sunday):', date.getUTCDay());
       
       // Get day names in Spanish
       const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
       const monthNames = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 
                          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
       
-      const dayName = dayNames[date.getDay()];
-      const monthName = monthNames[date.getMonth()];
+      const dayName = dayNames[date.getUTCDay()];
+      const monthName = monthNames[date.getUTCMonth()];
       
       const formatted = `${dayName}, ${day} De ${monthName} De ${year}`;
       console.log('🗓️ Formatted date:', formatted);
