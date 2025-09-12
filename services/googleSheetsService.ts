@@ -15,64 +15,83 @@ export class GoogleSheetsService {
   static async fetchAppointments(): Promise<{ appointments: Appointment[], patients: Patient[] }> {
     console.log('🔄 Starting Google Sheets fetch...');
     
-    // Try multiple approaches to fetch the data
+    try {
+      // First, try to test connection
+      const isConnected = await this.testConnection();
+      if (!isConnected) {
+        console.warn('⚠️ Google Sheets connection test failed, using mock data');
+        const mockAppointments = this.generateMockAppointments();
+        const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
+        return { appointments: mockAppointments, patients: mockPatients };
+      }
+
+      // Try to fetch using a CORS proxy or alternative method
+      const data = await this.fetchWithFallback();
+      
+      if (data) {
+        const appointments = this.parseCSVToAppointments(data);
+        const patients = this.extractPatientsFromAppointments(appointments);
+        
+        console.log(`✅ Successfully fetched ${appointments.length} appointments and ${patients.length} patients`);
+        return { appointments, patients };
+      }
+      
+      throw new Error('No data received from Google Sheets');
+      
+    } catch (error) {
+      console.error('❌ Google Sheets fetch error:', error);
+      
+      // Always return mock data as fallback
+      console.warn('⚠️ Using mock data due to fetch error');
+      const mockAppointments = this.generateMockAppointments();
+      const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
+      
+      return { appointments: mockAppointments, patients: mockPatients };
+    }
+  }
+
+  private static async fetchWithFallback(): Promise<string | null> {
     const urls = [
-      this.getPublicCSVUrl(),
-      this.getCSVUrl(),
+      // Try the public CSV export first
+      `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv&gid=0`,
+      // Try with different gid
+      `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv`,
+      // Try the query API
+      `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`,
     ];
-    
-    let lastError: Error | null = null;
     
     for (const url of urls) {
       try {
-        console.log(`📡 Attempting to fetch from: ${url}`);
+        console.log(`📡 Trying URL: ${url}`);
         
         const response = await fetch(url, {
           method: 'GET',
           headers: {
             'Accept': 'text/csv,text/plain,*/*',
-            'Cache-Control': 'no-cache',
+            'User-Agent': 'Mozilla/5.0 (compatible; RubioGarciaApp/1.0)',
           },
           mode: 'cors',
+          cache: 'no-cache',
         });
         
         console.log(`📡 Response status: ${response.status}`);
-        console.log(`📡 Response headers:`, Object.fromEntries(response.headers.entries()));
         
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status} - ${response.statusText}`);
+        if (response.ok) {
+          const text = await response.text();
+          if (text && text.trim().length > 0) {
+            console.log(`✅ Successfully fetched data from: ${url}`);
+            console.log(`📄 Data length: ${text.length}`);
+            return text;
+          }
         }
-        
-        const csvText = await response.text();
-        console.log(`📄 CSV text length: ${csvText.length}`);
-        console.log(`📄 First 200 chars: ${csvText.substring(0, 200)}`);
-        
-        if (!csvText || csvText.trim().length === 0) {
-          throw new Error('Empty response from Google Sheets');
-        }
-        
-        const appointments = this.parseCSVToAppointments(csvText);
-        const patients = this.extractPatientsFromAppointments(appointments);
-        
-        console.log(`✅ Successfully fetched ${appointments.length} appointments and ${patients.length} patients`);
-        return { appointments, patients };
         
       } catch (error) {
-        console.error(`❌ Failed to fetch from ${url}:`, error);
-        lastError = error instanceof Error ? error : new Error(String(error));
+        console.log(`❌ Failed to fetch from ${url}:`, error);
         continue;
       }
     }
     
-    // If all methods fail, return mock data with a warning
-    console.warn('⚠️ All Google Sheets fetch methods failed, using mock data');
-    console.warn('⚠️ Last error:', lastError?.message);
-    
-    // Generate realistic mock data based on the expected structure
-    const mockAppointments = this.generateMockAppointments();
-    const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
-    
-    return { appointments: mockAppointments, patients: mockPatients };
+    return null;
   }
 
   private static parseCSVToAppointments(csvText: string): Appointment[] {
@@ -410,24 +429,22 @@ export class GoogleSheetsService {
 
   static async testConnection(): Promise<boolean> {
     try {
-      const urls = [this.getPublicCSVUrl(), this.getCSVUrl()];
+      // Simple connectivity test using a lightweight request
+      const testUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/edit`;
       
-      for (const url of urls) {
-        try {
-          const response = await fetch(url, { method: 'HEAD' });
-          if (response.ok) {
-            console.log(`✅ Connection test successful for: ${url}`);
-            return true;
-          }
-        } catch (error) {
-          console.log(`❌ Connection test failed for: ${url}`, error);
-          continue;
-        }
-      }
+      await fetch(testUrl, { 
+        method: 'HEAD',
+        mode: 'no-cors', // This will always succeed but we can't read the response
+        cache: 'no-cache'
+      });
       
-      return false;
+      // Since we're using no-cors, we can't check the actual response
+      // but if the fetch doesn't throw, it means the URL is reachable
+      console.log('✅ Basic connectivity test passed');
+      return true;
+      
     } catch (error) {
-      console.error('Google Sheets connection test failed:', error);
+      console.error('❌ Connection test failed:', error);
       return false;
     }
   }
