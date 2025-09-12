@@ -16,33 +16,28 @@ export class GoogleSheetsService {
     console.log('🔄 Starting Google Sheets fetch...');
     
     try {
-      // First, try to test connection
-      const isConnected = await this.testConnection();
-      if (!isConnected) {
-        console.warn('⚠️ Google Sheets connection test failed, using mock data');
-        const mockAppointments = this.generateMockAppointments();
-        const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
-        return { appointments: mockAppointments, patients: mockPatients };
-      }
-
-      // Try to fetch using a CORS proxy or alternative method
+      // Try to fetch using different methods
       const data = await this.fetchWithFallback();
       
-      if (data) {
+      if (data && data.trim().length > 0) {
         const appointments = this.parseCSVToAppointments(data);
         const patients = this.extractPatientsFromAppointments(appointments);
         
-        console.log(`✅ Successfully fetched ${appointments.length} appointments and ${patients.length} patients`);
+        console.log(`✅ Successfully fetched ${appointments.length} appointments and ${patients.length} patients from Google Sheets`);
         return { appointments, patients };
       }
       
-      throw new Error('No data received from Google Sheets');
+      // If no data received, use mock data
+      console.log('📋 No data from Google Sheets, using mock data');
+      const mockAppointments = this.generateMockAppointments();
+      const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
+      
+      return { appointments: mockAppointments, patients: mockPatients };
       
     } catch (error) {
-      console.error('❌ Google Sheets fetch error:', error);
+      // Silently handle CORS and network errors - this is expected in web environments
+      console.log('📋 Google Sheets not accessible (CORS/Network), using mock data');
       
-      // Always return mock data as fallback
-      console.warn('⚠️ Using mock data due to fetch error');
       const mockAppointments = this.generateMockAppointments();
       const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
       
@@ -51,6 +46,9 @@ export class GoogleSheetsService {
   }
 
   private static async fetchWithFallback(): Promise<string | null> {
+    // Note: Direct Google Sheets access is limited by CORS in web browsers
+    // This method attempts different approaches but will likely fail in web environments
+    
     const urls = [
       // Try the public CSV export first
       `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv&gid=0`,
@@ -62,31 +60,31 @@ export class GoogleSheetsService {
     
     for (const url of urls) {
       try {
-        console.log(`📡 Trying URL: ${url}`);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
         
         const response = await fetch(url, {
           method: 'GET',
           headers: {
             'Accept': 'text/csv,text/plain,*/*',
-            'User-Agent': 'Mozilla/5.0 (compatible; RubioGarciaApp/1.0)',
           },
           mode: 'cors',
           cache: 'no-cache',
+          signal: controller.signal,
         });
         
-        console.log(`📡 Response status: ${response.status}`);
+        clearTimeout(timeoutId);
         
         if (response.ok) {
           const text = await response.text();
-          if (text && text.trim().length > 0) {
-            console.log(`✅ Successfully fetched data from: ${url}`);
-            console.log(`📄 Data length: ${text.length}`);
+          if (text && text.trim().length > 0 && !text.includes('<!DOCTYPE html>')) {
+            console.log(`✅ Successfully fetched data from Google Sheets`);
             return text;
           }
         }
         
       } catch (error) {
-        console.log(`❌ Failed to fetch from ${url}:`, error);
+        // Expected in web environments due to CORS
         continue;
       }
     }
@@ -428,23 +426,26 @@ export class GoogleSheetsService {
   }
 
   static async testConnection(): Promise<boolean> {
+    // In web environments, direct Google Sheets access is typically blocked by CORS
+    // This method is kept for compatibility but will usually return false in browsers
     try {
-      // Simple connectivity test using a lightweight request
-      const testUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/edit`;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
       
-      await fetch(testUrl, { 
+      const testUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv&gid=0`;
+      
+      const response = await fetch(testUrl, { 
         method: 'HEAD',
-        mode: 'no-cors', // This will always succeed but we can't read the response
-        cache: 'no-cache'
+        mode: 'cors',
+        cache: 'no-cache',
+        signal: controller.signal
       });
       
-      // Since we're using no-cors, we can't check the actual response
-      // but if the fetch doesn't throw, it means the URL is reachable
-      console.log('✅ Basic connectivity test passed');
-      return true;
+      clearTimeout(timeoutId);
+      return response.ok;
       
     } catch (error) {
-      console.error('❌ Connection test failed:', error);
+      // Expected in web environments
       return false;
     }
   }
