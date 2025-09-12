@@ -41,9 +41,22 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="agenda"
+        name="dashboard"
         options={{
-          title: "Agenda",
+          title: "Dashboard",
+          tabBarIcon: ({ color, size }) => (
+            <CustomIcon 
+              source="https://r2-pub.rork.com/generated-images/c8de3f54-23bd-4aa8-9bd1-2a8a8207e3a6.png" 
+              color={color} 
+              size={size} 
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: "Ajustes",
           tabBarIcon: ({ color, size }) => (
             <CustomIcon 
               source="https://r2-pub.rork.com/generated-images/c8de3f54-23bd-4aa8-9bd1-2a8a8207e3a6.png" 

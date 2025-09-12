@@ -1,5 +1,6 @@
 import { Redirect } from 'expo-router';
 
 export default function Index() {
-  return <Redirect href="/agenda" />;
+  // Redirect to the main tab
+  return <Redirect href="/(tabs)" />;
 }
