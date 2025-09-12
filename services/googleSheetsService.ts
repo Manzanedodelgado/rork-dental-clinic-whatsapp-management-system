@@ -1,22 +1,15 @@
 import type { GoogleSheetsAppointment, Appointment, Patient, AppointmentSyncInfo } from '@/types';
+import { GOOGLE_CONFIG, GOOGLE_SHEETS_URLS } from '@/constants/googleConfig';
 
-const GOOGLE_SHEETS_ID = '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ';
-const GOOGLE_API_KEY = 'AIzaSyA0c7nuWYhCyuiT8F2dBI_v-oqyjoutQ4A';
-const SHEET_NAME = 'Hoja 1';
-
-// Debug configuration
-console.log('🔧 Google Sheets Configuration:');
-console.log('   📊 Sheet ID:', GOOGLE_SHEETS_ID);
-console.log('   🔑 API Key:', GOOGLE_API_KEY ? `${GOOGLE_API_KEY.substring(0, 10)}...` : 'NOT SET');
-console.log('   📋 Sheet Name:', SHEET_NAME);
+const { GOOGLE_SHEET_ID, GOOGLE_API_KEY, SHEET_NAME } = GOOGLE_CONFIG;
 
 export class GoogleSheetsService {
   private static getCSVUrl(): string {
-    return `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
+    return `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
   }
 
   private static getPublicCSVUrl(): string {
-    return `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv&gid=0`;
+    return GOOGLE_SHEETS_URLS.getCsvUrl(GOOGLE_SHEET_ID);
   }
 
   static async fetchAppointments(): Promise<{ appointments: Appointment[], patients: Patient[] }> {
@@ -96,7 +89,7 @@ export class GoogleSheetsService {
 
   private static async fetchWithGoogleAPI(): Promise<any[][] | null> {
     try {
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=${GOOGLE_API_KEY}`;
+      const url = GOOGLE_SHEETS_URLS.getApiUrl(GOOGLE_SHEET_ID, SHEET_NAME, GOOGLE_API_KEY);
       
       console.log('🔄 Fetching from Google Sheets API...');
       console.log('🌐 Request URL:', url);
@@ -559,7 +552,7 @@ export class GoogleSheetsService {
   static async testConnection(): Promise<boolean> {
     try {
       console.log('🔍 Testing Google Sheets connection...');
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}?key=${GOOGLE_API_KEY}&fields=sheets.properties.title`;
+      const url = GOOGLE_SHEETS_URLS.getTestUrl(GOOGLE_SHEET_ID, GOOGLE_API_KEY);
       
       console.log('🌐 Test URL:', url);
       
