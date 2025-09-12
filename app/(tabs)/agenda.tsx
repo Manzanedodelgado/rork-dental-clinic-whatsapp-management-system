@@ -346,6 +346,7 @@ const styles = StyleSheet.create({
   dropdownContainer: {
     zIndex: 10,
     maxWidth: 360,
+    position: 'relative',
   },
   inputBox: {
     backgroundColor: Colors.light.surface,
@@ -374,8 +375,9 @@ const styles = StyleSheet.create({
     shadowColor: '#000000',
     shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 3,
+    elevation: 8,
     width: 280,
+    zIndex: 1000,
   },
   popoverHeader: {
     flexDirection: 'row',
@@ -435,6 +437,7 @@ const styles = StyleSheet.create({
   },
   appointmentsSection: {
     marginBottom: 32,
+    zIndex: 0,
   },
   sectionTitle: {
     fontSize: 18,
