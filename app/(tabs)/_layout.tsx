@@ -53,19 +53,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="agenda"
-        options={{
-          title: "Agenda",
-          tabBarIcon: ({ color, size }) => (
-            <CustomIcon 
-              source="https://r2-pub.rork.com/generated-images/a4133784-84e0-4490-ac56-fd38b81872a2.png" 
-              color={color} 
-              size={size} 
-            />
-          ),
-        }}
-      />
+
       <Tabs.Screen
         name="chat"
         options={{
