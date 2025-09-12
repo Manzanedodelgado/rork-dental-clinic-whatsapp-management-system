@@ -74,7 +74,7 @@ export default function TabLayout() {
     >
       {hasPermission('dashboard') && (
         <Tabs.Screen
-          name="(home)"
+          name="dashboard"
           options={{
             title: "Dashboard",
             tabBarIcon: ({ color, size }) => (
