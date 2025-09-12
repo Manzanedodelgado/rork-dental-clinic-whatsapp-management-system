@@ -102,6 +102,12 @@ export default function LoginScreen() {
             <Text style={styles.footerText}>
               Contraseña: 190582
             </Text>
+            <Text style={styles.footerText}>
+              Usuario de prueba: usuario_test
+            </Text>
+            <Text style={styles.footerText}>
+              Contraseña: 123456
+            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>

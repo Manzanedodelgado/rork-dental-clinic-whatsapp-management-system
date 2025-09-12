@@ -10,11 +10,25 @@ type AppHeaderProps = {
 };
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ title = 'Rubio García Dental' }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
 
   const handleLogout = async () => {
     await logout();
   };
+
+  // Debug: Log permissions in header
+  React.useEffect(() => {
+    if (user) {
+      console.log('📱 AppHeader - User permissions check:');
+      console.log('- User:', user.username, '| Role:', user.role);
+      console.log('- Permissions array:', user.permissions);
+      console.log('- Has dashboard:', hasPermission('dashboard'));
+      console.log('- Has patients:', hasPermission('patients'));
+      console.log('- Has appointments:', hasPermission('appointments'));
+      console.log('- Has whatsapp:', hasPermission('whatsapp'));
+      console.log('- Has users:', hasPermission('users'));
+    }
+  }, [user, hasPermission]);
 
   return (
     <View style={styles.header}>

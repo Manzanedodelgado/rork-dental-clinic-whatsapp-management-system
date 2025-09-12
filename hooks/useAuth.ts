@@ -29,7 +29,7 @@ const defaultUsers: User[] = [
     id: '2',
     username: 'usuario_test',
     role: 'user',
-    permissions: ['dashboard', 'patients'],
+    permissions: ['dashboard', 'patients', 'appointments', 'whatsapp'],
     createdAt: '2025-01-01T00:00:00Z',
   }
 ];
@@ -237,8 +237,17 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   };
 
   const hasPermission = (permission: string): boolean => {
-    if (!user) return false;
-    return user.permissions.includes('all') || user.permissions.includes(permission);
+    console.log('🔍 Checking permission:', permission, 'for user:', user?.username);
+    console.log('User permissions:', user?.permissions);
+    
+    if (!user) {
+      console.log('❌ No user found');
+      return false;
+    }
+    
+    const hasAccess = user.permissions.includes('all') || user.permissions.includes(permission);
+    console.log('✅ Permission result:', hasAccess);
+    return hasAccess;
   };
 
   return {

@@ -26,16 +26,29 @@ const styles = StyleSheet.create({
 });
 
 export default function TabLayout() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user, isAuthenticated } = useAuth();
 
-  console.log('🔍 Checking permissions in TabLayout');
-  console.log('Dashboard permission:', hasPermission('dashboard'));
-  console.log('Patients permission:', hasPermission('patients'));
-  console.log('WhatsApp permission:', hasPermission('whatsapp'));
-  console.log('Templates permission:', hasPermission('templates'));
-  console.log('Automations permission:', hasPermission('automations'));
-  console.log('AI permission:', hasPermission('ai'));
-  console.log('Users permission:', hasPermission('users'));
+  // Force re-render when user changes
+  const userKey = user ? `${user.id}-${user.permissions.join(',')}` : 'no-user';
+  
+  React.useEffect(() => {
+    console.log('🔄 TabLayout re-rendered due to user change:', userKey);
+  }, [userKey]);
+
+  console.log('🔍 TabLayout - Auth State:');
+  console.log('- Is Authenticated:', isAuthenticated);
+  console.log('- Current User:', user?.username);
+  console.log('- User Role:', user?.role);
+  console.log('- User Permissions:', user?.permissions);
+  console.log('🔍 Checking individual permissions:');
+  console.log('- Dashboard permission:', hasPermission('dashboard'));
+  console.log('- Patients permission:', hasPermission('patients'));
+  console.log('- Appointments permission:', hasPermission('appointments'));
+  console.log('- WhatsApp permission:', hasPermission('whatsapp'));
+  console.log('- Templates permission:', hasPermission('templates'));
+  console.log('- Automations permission:', hasPermission('automations'));
+  console.log('- AI permission:', hasPermission('ai'));
+  console.log('- Users permission:', hasPermission('users'));
 
   return (
     <Tabs
