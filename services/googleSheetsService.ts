@@ -4,6 +4,12 @@ const GOOGLE_SHEETS_ID = '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ';
 const GOOGLE_API_KEY = 'AIzaSyA0c7nuWYhCyuiT8F2dBI_v-oqyjoutQ4A';
 const SHEET_NAME = 'Hoja 1';
 
+// Debug configuration
+console.log('🔧 Google Sheets Configuration:');
+console.log('   📊 Sheet ID:', GOOGLE_SHEETS_ID);
+console.log('   🔑 API Key:', GOOGLE_API_KEY ? `${GOOGLE_API_KEY.substring(0, 10)}...` : 'NOT SET');
+console.log('   📋 Sheet Name:', SHEET_NAME);
+
 export class GoogleSheetsService {
   private static getCSVUrl(): string {
     return `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`;
@@ -17,14 +23,39 @@ export class GoogleSheetsService {
     console.log('🔄 Starting Google Sheets fetch...');
     
     try {
+      // First test the connection
+      const connectionTest = await this.testConnection();
+      console.log('🔗 Connection test result:', connectionTest);
+      
+      if (!connectionTest) {
+        console.log('❌ Connection test failed, using mock data');
+        const mockAppointments = this.generateMockAppointments();
+        const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
+        return { appointments: mockAppointments, patients: mockPatients };
+      }
+      
       // Use Google Sheets API v4 with API key
       const data = await this.fetchWithGoogleAPI();
       
       if (data && data.length > 0) {
+        console.log('📊 Raw data from Google Sheets:', data.length, 'rows');
+        console.log('📊 First row (headers):', data[0]);
+        if (data.length > 1) {
+          console.log('📊 Second row (sample data):', data[1]);
+        }
+        
         const appointments = this.parseGoogleSheetsData(data);
         const patients = this.extractPatientsFromAppointments(appointments);
         
         console.log(`✅ Successfully fetched ${appointments.length} appointments and ${patients.length} patients from Google Sheets`);
+        
+        if (appointments.length > 0) {
+          console.log('📋 Sample appointments:');
+          appointments.slice(0, 3).forEach((apt, i) => {
+            console.log(`   ${i + 1}. ${apt.patientName} - ${apt.date} ${apt.time} (${apt.treatment})`);
+          });
+        }
+        
         return { appointments, patients };
       }
       
@@ -37,6 +68,10 @@ export class GoogleSheetsService {
       
     } catch (error) {
       console.error('❌ Google Sheets fetch error:', error);
+      console.error('❌ Error details:', {
+        message: (error as Error).message,
+        stack: (error as Error).stack
+      });
       
       const mockAppointments = this.generateMockAppointments();
       const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
@@ -50,21 +85,35 @@ export class GoogleSheetsService {
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=${GOOGLE_API_KEY}`;
       
       console.log('🔄 Fetching from Google Sheets API...');
+      console.log('🌐 Request URL:', url);
       
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          'User-Agent': 'RubioGarciaApp/1.0'
         },
       });
       
+      console.log('📡 Response status:', response.status, response.statusText);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ Response error body:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
       
       const data = await response.json();
+      console.log('📊 Response data structure:', {
+        hasValues: !!data.values,
+        valuesLength: data.values?.length || 0,
+        range: data.range,
+        majorDimension: data.majorDimension
+      });
       
       if (!data.values || data.values.length === 0) {
+        console.log('⚠️ Empty response from Google Sheets');
         throw new Error('No data received from Google Sheets');
       }
       
@@ -73,6 +122,14 @@ export class GoogleSheetsService {
       
     } catch (error) {
       console.error('❌ Google Sheets API error:', error);
+      if ((error as Error).message.includes('Load failed')) {
+        console.error('❌ This appears to be a CORS or network connectivity issue');
+        console.error('❌ Possible causes:');
+        console.error('   - Google Sheets API key is invalid or expired');
+        console.error('   - Sheet is not publicly accessible');
+        console.error('   - Network connectivity issues');
+        console.error('   - CORS restrictions in browser environment');
+      }
       throw error;
     }
   }
@@ -409,26 +466,45 @@ export class GoogleSheetsService {
 
   static async testConnection(): Promise<boolean> {
     try {
+      console.log('🔍 Testing Google Sheets connection...');
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}?key=${GOOGLE_API_KEY}&fields=sheets.properties.title`;
+      
+      console.log('🌐 Test URL:', url);
       
       const response = await fetch(url, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
+          'User-Agent': 'RubioGarciaApp/1.0'
         },
       });
       
+      console.log('📡 Test response status:', response.status, response.statusText);
+      
       if (response.ok) {
         const data = await response.json();
-        console.log('✅ Google Sheets connection successful:', data.sheets?.map((s: any) => s.properties.title));
+        const sheetNames = data.sheets?.map((s: any) => s.properties.title) || [];
+        console.log('✅ Google Sheets connection successful!');
+        console.log('📋 Available sheets:', sheetNames);
+        console.log('🎯 Target sheet "' + SHEET_NAME + '" exists:', sheetNames.includes(SHEET_NAME));
         return true;
+      } else {
+        const errorText = await response.text();
+        console.error('❌ Google Sheets connection failed:', response.status, response.statusText);
+        console.error('❌ Error response:', errorText);
+        return false;
       }
-      
-      console.error('❌ Google Sheets connection failed:', response.status, response.statusText);
-      return false;
       
     } catch (error) {
       console.error('❌ Google Sheets connection error:', error);
+      if ((error as Error).message.includes('Load failed')) {
+        console.error('❌ Network or CORS issue detected');
+        console.error('💡 Suggestions:');
+        console.error('   1. Check if the Google Sheets API key is valid');
+        console.error('   2. Verify the spreadsheet ID is correct');
+        console.error('   3. Ensure the spreadsheet is publicly accessible');
+        console.error('   4. Check network connectivity');
+      }
       return false;
     }
   }
