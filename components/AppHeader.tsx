@@ -1,17 +1,39 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { RubioGarciaLogo } from './RubioGarciaLogo';
+import { useAuth } from '@/hooks/useAuth';
 import Colors from '@/constants/colors';
+import { LogOut, User } from 'lucide-react-native';
 
 type AppHeaderProps = {
   title?: string;
 };
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ title = 'Rubio García Dental' }) => {
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+  };
+
   return (
     <View style={styles.header}>
       <View style={styles.logoContainer}>
         <RubioGarciaLogo variant="full" width={180} />
+      </View>
+      
+      <View style={styles.userSection}>
+        <View style={styles.userInfo}>
+          <User size={16} color={Colors.light.textSecondary} />
+          <Text style={styles.username}>{user?.username}</Text>
+        </View>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          testID="logout-button"
+        >
+          <LogOut size={18} color={Colors.light.error} />
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -38,6 +60,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
+  },
+  userSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'absolute',
+    right: 16,
+  },
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  username: {
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  logoutButton: {
+    padding: 8,
   },
   title: {
     fontSize: 18,

@@ -6,6 +6,8 @@ import { StyleSheet } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StorageProvider } from "@/hooks/useStorage";
 import { ClinicProvider } from "@/hooks/useClinicStore";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import LoginScreen from "@/app/login";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -15,6 +17,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: "Atrás" }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen 
         name="modal" 
         options={{ 
@@ -24,6 +27,20 @@ function RootLayoutNav() {
       />
     </Stack>
   );
+}
+
+function AuthenticatedApp() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return null;
+  }
+
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
+  return <RootLayoutNav />;
 }
 
 export default function RootLayout() {
@@ -39,11 +56,13 @@ export default function RootLayout() {
   return (
     <QueryClientProvider client={queryClient}>
       <StorageProvider>
-        <ClinicProvider>
-          <GestureHandlerRootView style={styles.container}>
-            <RootLayoutNav />
-          </GestureHandlerRootView>
-        </ClinicProvider>
+        <AuthProvider>
+          <ClinicProvider>
+            <GestureHandlerRootView style={styles.container}>
+              <AuthenticatedApp />
+            </GestureHandlerRootView>
+          </ClinicProvider>
+        </AuthProvider>
       </StorageProvider>
     </QueryClientProvider>
   );

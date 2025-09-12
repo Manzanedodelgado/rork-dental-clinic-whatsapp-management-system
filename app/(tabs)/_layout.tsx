@@ -139,6 +139,19 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="users"
+        options={{
+          title: "Usuarios",
+          tabBarIcon: ({ color, size }) => (
+            <CustomIcon 
+              source="https://r2-pub.rork.com/generated-images/3fb11af3-6ee1-4115-85ed-09c054afb0e0.png" 
+              color={color} 
+              size={size} 
+            />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
