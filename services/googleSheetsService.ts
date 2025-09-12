@@ -142,6 +142,7 @@ export class GoogleSheetsService {
         patientName: `${row.Nombre} ${row.Apellidos}`.trim(),
         apellidos: row.Apellidos,
         nombre: row.Nombre,
+        numPac: row.NumPac,
         date: formattedDate,
         time: formattedTime,
         treatment: row.Tratamiento || 'Consulta general',
@@ -149,12 +150,14 @@ export class GoogleSheetsService {
         notes: row.Notas,
         duration: row.Duracion ? parseInt(row.Duracion) : undefined,
         dentist: row.Odontologo,
+        odontologo: row.Odontologo,
         startDateTime: row.FechaHoraIni,
         endDateTime: row.FechaHoraFin,
         fechaAlta: row.FechaAlta,
         citMod: row.CitMod,
         telMovil: row.TelMovil,
         estadoCita: row.EstadoCita,
+        situacion: row.Situacion || row.EstadoCita,
       };
     } catch (error) {
       console.warn('Error converting row to appointment:', error);

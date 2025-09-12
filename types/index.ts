@@ -17,6 +17,7 @@ export interface Appointment {
   patientName: string;
   apellidos: string;
   nombre: string;
+  numPac?: string;
   date: string;
   time: string;
   treatment: string;
@@ -24,12 +25,14 @@ export interface Appointment {
   notes?: string;
   duration?: number;
   dentist?: string;
+  odontologo?: string;
   startDateTime?: string;
   endDateTime?: string;
   fechaAlta: string;
   citMod: string;
   telMovil?: string;
   estadoCita: string;
+  situacion?: string;
 }
 
 export interface GoogleSheetsAppointment {
@@ -49,6 +52,7 @@ export interface GoogleSheetsAppointment {
   Duracion: string;
   FechaHoraIni: string;
   FechaHoraFin: string;
+  Situacion?: string;
 }
 
 export interface AppointmentSyncInfo {
