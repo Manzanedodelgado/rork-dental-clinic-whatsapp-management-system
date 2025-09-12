@@ -21,22 +21,22 @@ const defaultUsers: User[] = [
   {
     id: '1',
     username: 'JMD',
-    role: 'admin',
-    permissions: ['all'],
+    role: 'user',
+    permissions: ['dashboard', 'whatsapp'],
     createdAt: '2025-01-01T00:00:00Z',
   },
   {
     id: '2',
-    username: 'usuario_test',
-    role: 'user',
-    permissions: ['dashboard', 'patients', 'appointments', 'whatsapp'],
+    username: 'admin',
+    role: 'admin',
+    permissions: ['all'],
     createdAt: '2025-01-01T00:00:00Z',
   }
 ];
 
 const defaultCredentials = {
   'JMD': '190582',
-  'usuario_test': '123456'
+  'admin': 'admin123'
 };
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
@@ -51,6 +51,26 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
   useEffect(() => {
     loadAuthState();
   }, []);
+
+  // Reset function to clear stored data and use defaults
+  const resetToDefaults = async () => {
+    try {
+      await Promise.all([
+        storage.removeItem('auth'),
+        storage.removeItem('users'),
+        storage.removeItem('credentials')
+      ]);
+      
+      setIsAuthenticated(false);
+      setUser(null);
+      setUsers(defaultUsers);
+      setCredentials(defaultCredentials);
+      
+      console.log('🔄 Reset to default users and credentials');
+    } catch (error) {
+      console.error('Error resetting to defaults:', error);
+    }
+  };
 
   const loadAuthState = async () => {
     try {
@@ -261,6 +281,7 @@ export const [AuthProvider, useAuth] = createContextHook(() => {
     updateUser,
     deleteUser,
     changePassword,
-    hasPermission
+    hasPermission,
+    resetToDefaults
   };
 });

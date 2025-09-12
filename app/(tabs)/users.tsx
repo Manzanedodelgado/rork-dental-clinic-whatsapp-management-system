@@ -15,7 +15,7 @@ import Colors from '@/constants/colors';
 import { Users, Plus, Edit3, Trash2, Shield, Key } from 'lucide-react-native';
 
 export default function UsersScreen() {
-  const { users, user: currentUser, createUser, updateUser, deleteUser, changePassword, hasPermission } = useAuth();
+  const { users, user: currentUser, createUser, updateUser, deleteUser, changePassword, hasPermission, resetToDefaults } = useAuth();
   const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [showPasswordModal, setShowPasswordModal] = useState<boolean>(false);
@@ -157,17 +157,26 @@ export default function UsersScreen() {
           <Users size={24} color={Colors.light.primary} />
           <Text style={styles.headerTitle}>Gestión de Usuarios</Text>
         </View>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            resetForm();
-            setShowCreateModal(true);
-          }}
-          testID="add-user-button"
-        >
-          <Plus size={20} color="white" />
-          <Text style={styles.addButtonText}>Nuevo</Text>
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={resetToDefaults}
+            testID="reset-button"
+          >
+            <Text style={styles.resetButtonText}>Reset</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => {
+              resetForm();
+              setShowCreateModal(true);
+            }}
+            testID="add-user-button"
+          >
+            <Plus size={20} color="white" />
+            <Text style={styles.addButtonText}>Nuevo</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -667,5 +676,21 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  resetButton: {
+    backgroundColor: Colors.light.error,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginRight: 8,
+  },
+  resetButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
