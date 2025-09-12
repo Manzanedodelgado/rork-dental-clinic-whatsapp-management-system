@@ -2,7 +2,7 @@ import createContextHook from '@nkzw/create-context-hook';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useMemo } from 'react';
 import { useStorage } from '@/hooks/useStorage';
-import { SQLServerService } from '@/services/sqlServerService';
+import { GoogleSheetsService } from '@/services/googleSheetsService';
 import type { Patient, Appointment, WhatsAppConversation, MessageTemplate, Automation, AIConfig } from '@/types';
 
 export const [ClinicProvider, useClinic] = createContextHook(() => {
@@ -15,18 +15,16 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
-  // SQL Server Sync Query - runs every 5 minutes
-  const sqlServerQuery = useQuery({
-    queryKey: ['sqlServer'],
+  // Google Sheets Sync Query - runs every 5 minutes
+  const googleSheetsQuery = useQuery({
+    queryKey: ['googleSheets'],
     queryFn: async () => {
       try {
-        console.log('🔄 Starting SQL Server sync...');
-        const data = await SQLServerService.fetchAppointments();
+        console.log('🔄 Starting Google Sheets sync...');
+        const data = await GoogleSheetsService.fetchAppointments();
         
         console.log('📦 Sync completed successfully:');
         console.log(`   📋 Total appointments: ${data.appointments.length}`);
-        console.log(`   🆕 New appointments: ${data.newAppointments.length}`);
-        console.log(`   🔄 Updated appointments: ${data.updatedAppointments.length}`);
         console.log(`   👥 Patients: ${data.patients.length}`);
         
         if (data.appointments.length > 0) {
@@ -36,12 +34,31 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
           });
         }
         
+        // Analyze sync info for new and modified appointments
+        const newAppointments = data.appointments.filter(apt => {
+          const syncInfo = GoogleSheetsService.getSyncInfo(apt);
+          return syncInfo.isNew;
+        });
+        
+        const updatedAppointments = data.appointments.filter(apt => {
+          const syncInfo = GoogleSheetsService.getSyncInfo(apt);
+          return syncInfo.isModified;
+        });
+        
+        console.log(`   🆕 New appointments: ${newAppointments.length}`);
+        console.log(`   🔄 Updated appointments: ${updatedAppointments.length}`);
+        
         setLastSyncTime(new Date());
         setSyncError(null);
         
-        return data;
+        return {
+          appointments: data.appointments,
+          patients: data.patients,
+          newAppointments,
+          updatedAppointments
+        };
       } catch (error) {
-        console.error('❌ SQL Server sync error:', error);
+        console.error('❌ Google Sheets sync error:', error);
         setSyncError(error instanceof Error ? error.message : 'Error de sincronización');
         throw error;
       }
@@ -113,7 +130,25 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
   const syncMutation = useMutation({
     mutationFn: async () => {
       console.log('🔄 Manual sync initiated...');
-      return await SQLServerService.fetchAppointments();
+      const data = await GoogleSheetsService.fetchAppointments();
+      
+      // Analyze sync info for new and modified appointments
+      const newAppointments = data.appointments.filter(apt => {
+        const syncInfo = GoogleSheetsService.getSyncInfo(apt);
+        return syncInfo.isNew;
+      });
+      
+      const updatedAppointments = data.appointments.filter(apt => {
+        const syncInfo = GoogleSheetsService.getSyncInfo(apt);
+        return syncInfo.isModified;
+      });
+      
+      return {
+        appointments: data.appointments,
+        patients: data.patients,
+        newAppointments,
+        updatedAppointments
+      };
     },
     onSuccess: (data) => {
       if (data) {
@@ -122,7 +157,7 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
         console.log(`   🆕 New: ${data.newAppointments.length}`);
         console.log(`   🔄 Updated: ${data.updatedAppointments.length}`);
         
-        queryClient.setQueryData(['sqlServer'], data);
+        queryClient.setQueryData(['googleSheets'], data);
         setLastSyncTime(new Date());
         setSyncError(null);
       }
@@ -183,11 +218,11 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
 
   // Computed values - using useMemo with proper dependencies
   const patients = useMemo(() => {
-    return sqlServerQuery.data?.patients || mockPatients;
-  }, [sqlServerQuery.data?.patients]);
+    return googleSheetsQuery.data?.patients || mockPatients;
+  }, [googleSheetsQuery.data?.patients]);
 
   const appointments = useMemo(() => {
-    const result = sqlServerQuery.data?.appointments || mockAppointments;
+    const result = googleSheetsQuery.data?.appointments || mockAppointments;
     console.log('📋 Appointments memoized:', result.length);
     if (result.length > 0) {
       console.log('📋 First appointment in memoized data:', {
@@ -199,15 +234,15 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
       });
     }
     return result;
-  }, [sqlServerQuery.data?.appointments]);
+  }, [googleSheetsQuery.data?.appointments]);
 
   const newAppointments = useMemo(() => {
-    return sqlServerQuery.data?.newAppointments || [];
-  }, [sqlServerQuery.data?.newAppointments]);
+    return googleSheetsQuery.data?.newAppointments || [];
+  }, [googleSheetsQuery.data?.newAppointments]);
 
   const updatedAppointments = useMemo(() => {
-    return sqlServerQuery.data?.updatedAppointments || [];
-  }, [sqlServerQuery.data?.updatedAppointments]);
+    return googleSheetsQuery.data?.updatedAppointments || [];
+  }, [googleSheetsQuery.data?.updatedAppointments]);
 
   const todayAppointments = useMemo(() => {
     const today = new Date();
@@ -277,12 +312,17 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
   }, [conversationsQuery.data, selectedConversation]);
 
   const isConnected = useMemo(() => {
-    return !sqlServerQuery.isError && !syncError;
-  }, [sqlServerQuery.isError, syncError]);
+    return !googleSheetsQuery.isError && !syncError;
+  }, [googleSheetsQuery.isError, syncError]);
 
   const syncStats = useMemo(() => {
-    return SQLServerService.getSyncStats();
-  }, []);
+    return {
+      totalAppointments: appointments.length,
+      newAppointments: newAppointments.length,
+      updatedAppointments: updatedAppointments.length,
+      lastSync: lastSyncTime
+    };
+  }, [appointments.length, newAppointments.length, updatedAppointments.length, lastSyncTime]);
 
   return {
     // Data
@@ -306,10 +346,10 @@ export const [ClinicProvider, useClinic] = createContextHook(() => {
     lastSyncTime,
     syncError,
     isConnected,
-    isSyncing: sqlServerQuery.isFetching || syncMutation.isPending,
+    isSyncing: googleSheetsQuery.isFetching || syncMutation.isPending,
     
     // Loading states
-    isLoading: sqlServerQuery.isLoading || conversationsQuery.isLoading,
+    isLoading: googleSheetsQuery.isLoading || conversationsQuery.isLoading,
     
     // Actions
     setSelectedConversation,
@@ -373,59 +413,89 @@ const generateMockAppointments = (): Appointment[] => {
   console.log(`   Tomorrow: ${tomorrowStr}`);
   console.log(`   Day after: ${dayAfterStr}`);
   
-  const appointments = [
+  const appointments: Appointment[] = [
     {
       id: '1',
+      registro: '1',
       patientId: '1',
       patientName: 'María González',
+      apellidos: 'González',
+      nombre: 'María',
       date: todayStr,
       time: '09:00',
       treatment: 'Revisión implante',
-      status: 'scheduled' as const,
+      status: 'Planificada',
       dentist: 'Mario Rubio',
-      notes: 'Control post-implante'
+      notes: 'Control post-implante',
+      fechaAlta: new Date().toISOString(),
+      citMod: new Date().toISOString(),
+      estadoCita: 'Planificada'
     },
     {
       id: '2',
+      registro: '2',
       patientId: '2',
       patientName: 'Carlos Ruiz',
+      apellidos: 'Ruiz',
+      nombre: 'Carlos',
       date: todayStr,
       time: '10:30',
       treatment: 'Ajuste ortodoncia',
-      status: 'scheduled' as const,
+      status: 'Planificada',
       dentist: 'Irene Garcia',
-      notes: 'Ajuste mensual de brackets'
+      notes: 'Ajuste mensual de brackets',
+      fechaAlta: new Date().toISOString(),
+      citMod: new Date().toISOString(),
+      estadoCita: 'Planificada'
     },
     {
       id: '3',
+      registro: '3',
       patientId: '3',
       patientName: 'Ana Martín',
+      apellidos: 'Martín',
+      nombre: 'Ana',
       date: tomorrowStr,
       time: '11:00',
       treatment: 'Limpieza dental',
-      status: 'scheduled' as const,
+      status: 'Planificada',
       dentist: 'Virginia Tresgallo',
-      notes: 'Limpieza semestral'
+      notes: 'Limpieza semestral',
+      fechaAlta: new Date().toISOString(),
+      citMod: new Date().toISOString(),
+      estadoCita: 'Planificada'
     },
     {
       id: '4',
+      registro: '4',
       patientId: '1',
       patientName: 'María González',
+      apellidos: 'González',
+      nombre: 'María',
       date: dayAfterStr,
       time: '14:00',
       treatment: 'Control post-implante',
-      status: 'scheduled' as const,
-      dentist: 'Mario Rubio'
+      status: 'Planificada',
+      dentist: 'Mario Rubio',
+      fechaAlta: new Date().toISOString(),
+      citMod: new Date().toISOString(),
+      estadoCita: 'Planificada'
     },
     {
       id: '5',
+      registro: '5',
       patientId: '2',
       patientName: 'Carlos Ruiz',
+      apellidos: 'Ruiz',
+      nombre: 'Carlos',
       date: '2025-09-15',
       time: '16:30',
       treatment: 'Revisión ortodoncia',
-      status: 'scheduled' as const,
-      dentist: 'Irene Garcia'
+      status: 'Planificada',
+      dentist: 'Irene Garcia',
+      fechaAlta: new Date().toISOString(),
+      citMod: new Date().toISOString(),
+      estadoCita: 'Planificada'
     }
   ];
   
