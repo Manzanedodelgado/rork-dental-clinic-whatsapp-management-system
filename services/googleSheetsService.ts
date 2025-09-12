@@ -1,6 +1,7 @@
 import type { GoogleSheetsAppointment, Appointment, Patient, AppointmentSyncInfo } from '@/types';
 
 const GOOGLE_SHEETS_ID = '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ';
+const GOOGLE_API_KEY = 'AIzaSyA0c7nuWYhCyuiT8F2dBI_v-oqyjoutQ4A';
 const SHEET_NAME = 'Hoja 1';
 
 export class GoogleSheetsService {
@@ -16,18 +17,18 @@ export class GoogleSheetsService {
     console.log('🔄 Starting Google Sheets fetch...');
     
     try {
-      // Try to fetch using different methods
-      const data = await this.fetchWithFallback();
+      // Use Google Sheets API v4 with API key
+      const data = await this.fetchWithGoogleAPI();
       
-      if (data && data.trim().length > 0) {
-        const appointments = this.parseCSVToAppointments(data);
+      if (data && data.length > 0) {
+        const appointments = this.parseGoogleSheetsData(data);
         const patients = this.extractPatientsFromAppointments(appointments);
         
         console.log(`✅ Successfully fetched ${appointments.length} appointments and ${patients.length} patients from Google Sheets`);
         return { appointments, patients };
       }
       
-      // If no data received, use mock data without throwing error
+      // If no data received, use mock data
       console.log('📋 No data from Google Sheets, using mock data');
       const mockAppointments = this.generateMockAppointments();
       const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
@@ -35,8 +36,7 @@ export class GoogleSheetsService {
       return { appointments: mockAppointments, patients: mockPatients };
       
     } catch (error) {
-      // Silently handle CORS and network errors - this is expected in web environments
-      console.log('📋 Google Sheets not accessible (CORS/Network), using mock data');
+      console.error('❌ Google Sheets fetch error:', error);
       
       const mockAppointments = this.generateMockAppointments();
       const mockPatients = this.extractPatientsFromAppointments(mockAppointments);
@@ -45,73 +45,54 @@ export class GoogleSheetsService {
     }
   }
 
-  private static async fetchWithFallback(): Promise<string | null> {
-    // Note: Direct Google Sheets access is limited by CORS in web browsers
-    // This method attempts different approaches but will likely fail in web environments
-    
-    const urls = [
-      // Try the public CSV export first
-      `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv&gid=0`,
-      // Try with different gid
-      `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv`,
-      // Try the query API
-      `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(SHEET_NAME)}`,
-    ];
-    
-    for (const url of urls) {
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-        
-        const response = await fetch(url, {
-          method: 'GET',
-          headers: {
-            'Accept': 'text/csv,text/plain,*/*',
-          },
-          mode: 'cors',
-          cache: 'no-cache',
-          signal: controller.signal,
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (response.ok) {
-          const text = await response.text();
-          if (text && text.trim().length > 0 && !text.includes('<!DOCTYPE html>')) {
-            console.log(`✅ Successfully fetched data from Google Sheets`);
-            return text;
-          }
-        }
-        
-      } catch (error) {
-        // Expected in web environments due to CORS
-        continue;
+  private static async fetchWithGoogleAPI(): Promise<any[][] | null> {
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=${GOOGLE_API_KEY}`;
+      
+      console.log('🔄 Fetching from Google Sheets API...');
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      
+      const data = await response.json();
+      
+      if (!data.values || data.values.length === 0) {
+        throw new Error('No data received from Google Sheets');
+      }
+      
+      console.log(`✅ Fetched ${data.values.length} rows from Google Sheets`);
+      return data.values;
+      
+    } catch (error) {
+      console.error('❌ Google Sheets API error:', error);
+      throw error;
     }
-    
-    return null;
   }
 
-  private static parseCSVToAppointments(csvText: string): Appointment[] {
-    const lines = csvText.split('\n');
-    if (lines.length < 2) return [];
+  private static parseGoogleSheetsData(values: any[][]): Appointment[] {
+    if (values.length < 2) return [];
 
-    // Remove quotes and split headers
-    const headers = lines[0].replace(/"/g, '').split(',');
+    const headers = values[0];
     const appointments: Appointment[] = [];
 
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
+    console.log('📊 Headers found:', headers);
+
+    for (let i = 1; i < values.length; i++) {
+      const row = values[i];
+      if (!row || row.length === 0) continue;
 
       try {
-        // Parse CSV line handling quoted values
-        const values = this.parseCSVLine(line);
-        if (values.length !== headers.length) continue;
-
         const rowData: Record<string, string> = {};
         headers.forEach((header, index) => {
-          rowData[header] = values[index] || '';
+          rowData[header] = row[index] || '';
         });
 
         const appointment = this.convertToAppointment(rowData as any);
@@ -119,10 +100,11 @@ export class GoogleSheetsService {
           appointments.push(appointment);
         }
       } catch (error) {
-        console.warn('Error parsing CSV line:', line, error);
+        console.warn('Error parsing row:', row, error);
       }
     }
 
+    console.log(`📋 Parsed ${appointments.length} appointments from Google Sheets`);
     return appointments;
   }
 
@@ -426,26 +408,27 @@ export class GoogleSheetsService {
   }
 
   static async testConnection(): Promise<boolean> {
-    // In web environments, direct Google Sheets access is typically blocked by CORS
-    // This method is kept for compatibility but will usually return false in browsers
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_ID}?key=${GOOGLE_API_KEY}&fields=sheets.properties.title`;
       
-      const testUrl = `https://docs.google.com/spreadsheets/d/${GOOGLE_SHEETS_ID}/export?format=csv&gid=0`;
-      
-      const response = await fetch(testUrl, { 
-        method: 'HEAD',
-        mode: 'cors',
-        cache: 'no-cache',
-        signal: controller.signal
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
       });
       
-      clearTimeout(timeoutId);
-      return response.ok;
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Google Sheets connection successful:', data.sheets?.map((s: any) => s.properties.title));
+        return true;
+      }
+      
+      console.error('❌ Google Sheets connection failed:', response.status, response.statusText);
+      return false;
       
     } catch (error) {
-      // Expected in web environments
+      console.error('❌ Google Sheets connection error:', error);
       return false;
     }
   }
