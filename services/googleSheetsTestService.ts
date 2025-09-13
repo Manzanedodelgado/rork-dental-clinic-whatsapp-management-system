@@ -1,4 +1,4 @@
-// Test Google Sheets Configuration
+// Test Google Sheets Configuration (public access only, no API key)
 import { GOOGLE_CONFIG, GOOGLE_SHEETS_URLS } from '@/constants/googleConfig';
 import { GoogleSheetsService } from '@/services/googleSheetsService';
 
@@ -9,25 +9,20 @@ export class GoogleSheetsTestService {
     // 1. Configuration Check
     console.log('\n📋 1. Configuration Check:');
     console.log('   Sheet ID:', GOOGLE_CONFIG.GOOGLE_SHEET_ID);
-    console.log('   API Key:', GOOGLE_CONFIG.GOOGLE_API_KEY ? `${GOOGLE_CONFIG.GOOGLE_API_KEY.substring(0, 10)}...` : 'NOT SET');
     console.log('   Sheet Name:', GOOGLE_CONFIG.SHEET_NAME);
     
     // 2. URL Generation Test
     console.log('\n🌐 2. URL Generation Test:');
-    const apiUrl = GOOGLE_SHEETS_URLS.getApiUrl(
-      GOOGLE_CONFIG.GOOGLE_SHEET_ID, 
-      GOOGLE_CONFIG.SHEET_NAME, 
-      GOOGLE_CONFIG.GOOGLE_API_KEY
-    );
-    const csvUrl = GOOGLE_SHEETS_URLS.getCsvUrl(GOOGLE_CONFIG.GOOGLE_SHEET_ID);
-    const testUrl = GOOGLE_SHEETS_URLS.getTestUrl(GOOGLE_CONFIG.GOOGLE_SHEET_ID, GOOGLE_CONFIG.GOOGLE_API_KEY);
+    const csvUrl = GOOGLE_SHEETS_URLS.getGvizCsvUrl(GOOGLE_CONFIG.GOOGLE_SHEET_ID, GOOGLE_CONFIG.SHEET_NAME);
+    const csvExportUrl = GOOGLE_SHEETS_URLS.getExportCsvUrl(GOOGLE_CONFIG.GOOGLE_SHEET_ID);
+    const gvizJsonUrl = GOOGLE_SHEETS_URLS.getGvizJsonUrl(GOOGLE_CONFIG.GOOGLE_SHEET_ID, GOOGLE_CONFIG.SHEET_NAME);
     
-    console.log('   API URL:', apiUrl);
-    console.log('   CSV URL:', csvUrl);
-    console.log('   Test URL:', testUrl);
+    console.log('   GViz CSV URL:', csvUrl);
+    console.log('   Export CSV URL:', csvExportUrl);
+    console.log('   GViz JSON URL:', gvizJsonUrl);
     
     // 3. Connection Test
-    console.log('\n🔍 3. Connection Test:');
+    console.log('\n🔍 3. Connection Test (CSV):');
     const connectionResult = await GoogleSheetsService.testConnection();
     console.log('   Connection Status:', connectionResult ? '✅ SUCCESS' : '❌ FAILED');
     

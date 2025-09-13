@@ -2,15 +2,20 @@
 # -*- coding: utf-8 -*-
 """
 Exporta citas de Gesden (SQL Server) a Google Sheets.
-Elimina cualquier envío a una app SaaS y escribe directamente en una hoja llamada "Hoja1".
+- Usa exclusivamente Service Account (service-account-key.json). No usa API Key.
+- Hoja pública o privada: da igual, el Service Account escribe siempre que tenga acceso.
+- Router de grabado:
+  • Si FechaAlta == CitMod → cita NUEVA → insertamos fila completa
+  • Si FechaAlta != CitMod → cita MODIFICADA → buscamos por Registro y actualizamos la fila
+  • Se eliminan del Sheet las citas que ya no llegan desde SQL
 """
 
-import pyodbc
-import requests
 import sys
-import datetime
-import json
 import os
+import datetime
+from typing import Any, Dict, List, Tuple
+
+import pyodbc
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -19,137 +24,18 @@ DB_SERVER = os.getenv('DB_SERVER', 'GABINETE2\\INFOMED')
 DB_DATABASE = os.getenv('DB_DATABASE', 'GELITE')
 DB_DRIVER = os.getenv('DB_DRIVER', 'ODBC Driver 17 for SQL Server')
 
-# Google Sheets configuración
 GOOGLE_SHEET_ID = os.getenv('GOOGLE_SHEET_ID', '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ')
 SERVICE_ACCOUNT_FILE = os.getenv('SERVICE_ACCOUNT_FILE', 'service-account-key.json')
-GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
 TARGET_WORKSHEET = os.getenv('TARGET_WORKSHEET', 'Hoja1')
 
-# --- Logger ---
-def log_message(message: str):
-    print(f"[{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] {message}")
+HEADERS: List[str] = [
+    'Registro', 'CitMod', 'FechaAlta', 'NumPac', 'Apellidos', 'Nombre', 'TelMovil',
+    'Fecha', 'Hora', 'EstadoCita', 'Tratamiento', 'Odontologo', 'Notas', 'Duracion',
+    'InsertedAt'
+]
 
-# --- Función para enviar a Google Sheets ---
-def send_to_google_sheets(data: dict) -> bool:
-    """Envía datos directamente a Google Sheets usando Service Account o REST como fallback"""
-    try:
-        try:
-            scopes = [
-                'https://www.googleapis.com/auth/spreadsheets',
-                'https://www.googleapis.com/auth/drive'
-            ]
-
-            credentials = Credentials.from_service_account_file(
-                SERVICE_ACCOUNT_FILE,
-                scopes=scopes
-            )
-
-            gc = gspread.authorize(credentials)
-            spreadsheet = gc.open_by_key(GOOGLE_SHEET_ID)
-
-            try:
-                sheet = spreadsheet.worksheet(TARGET_WORKSHEET)
-                log_message(f"    📋 Usando hoja '{TARGET_WORKSHEET}'")
-            except gspread.exceptions.WorksheetNotFound:
-                sheet = spreadsheet.sheet1
-                log_message("    📋 'Hoja1' no encontrada, usando la primera hoja")
-
-            log_message("    📝 Escribiendo con Service Account...")
-        except Exception as e:
-            log_message(f"    ⚠️  Service Account falló: {e}")
-            log_message("    🔄 Intentando método alternativo con API REST...")
-            return send_to_google_sheets_api_rest(data)
-
-        row_data = [
-            data.get('Registro', ''),
-            data.get('CitMod', ''),
-            data.get('FechaAlta', ''),
-            data.get('NumPac', ''),
-            data.get('Apellidos', ''),
-            data.get('Nombre', ''),
-            data.get('TelMovil', ''),
-            data.get('Fecha', ''),
-            data.get('Hora', ''),
-            data.get('EstadoCita', ''),
-            data.get('Tratamiento', ''),
-            data.get('Odontologo', ''),
-            data.get('Notas', ''),
-            data.get('Duracion', ''),
-            datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        ]
-
-        sheet.append_row(row_data)
-        log_message(f"✅ Google Sheets: Registro {data.get('Registro', '')} enviado correctamente")
-        return True
-
-    except Exception as e:
-        log_message(f"❌ ERROR Google Sheets: {e}")
-        return False
-
-
-def send_to_google_sheets_api_rest(data: dict) -> bool:
-    """Método alternativo: enviar a Google Sheets usando API REST"""
-    try:
-        if not GOOGLE_API_KEY:
-            log_message("❌ ERROR API REST: Falta GOOGLE_API_KEY")
-            return False
-
-        row_data = [
-            data.get('Registro', ''),
-            data.get('CitMod', ''),
-            data.get('FechaAlta', ''),
-            data.get('NumPac', ''),
-            data.get('Apellidos', ''),
-            data.get('Nombre', ''),
-            data.get('TelMovil', ''),
-            data.get('Fecha', ''),
-            data.get('Hora', ''),
-            data.get('EstadoCita', ''),
-            data.get('Tratamiento', ''),
-            data.get('Odontologo', ''),
-            data.get('Notas', ''),
-            data.get('Duracion', ''),
-            datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        ]
-
-        url = f"https://sheets.googleapis.com/v4/spreadsheets/{GOOGLE_SHEET_ID}/values/{TARGET_WORKSHEET}!A:O:append"
-        headers = { 'Content-Type': 'application/json' }
-        payload = { "range": f"{TARGET_WORKSHEET}!A:O", "majorDimension": "ROWS", "values": [row_data] }
-        params = { 'key': GOOGLE_API_KEY, 'valueInputOption': 'RAW', 'insertDataOption': 'INSERT_ROWS' }
-
-        response = requests.post(url, headers=headers, json=payload, params=params, timeout=30)
-
-        if response.status_code in (200, 201):
-            log_message(f"✅ Google Sheets REST API: Registro {data.get('Registro', '')} enviado correctamente")
-            return True
-        else:
-            log_message(f"❌ ERROR API REST: {response.status_code} - {response.text}")
-            return False
-    except Exception as e:
-        log_message(f"❌ ERROR Google Sheets API REST: {e}")
-        return False
-
-
-# --- Conexión SQL Server ---
-
-def fetch_rows_from_sql():
-    conn = None
-    cursor = None
-    try:
-        log_message(f"🚀 INICIO - Extracción Gesden -> Google Sheets")
-        log_message(f"Conectando a SQL Server: {DB_SERVER}/{DB_DATABASE}")
-
-        conn = pyodbc.connect(
-            f'DRIVER={{{{}}}}'.format(DB_DRIVER) + ';' +
-            f'SERVER={DB_SERVER};' +
-            f'DATABASE={DB_DATABASE};' +
-            'Trusted_Connection=yes;'
-        )
-        cursor = conn.cursor()
-        log_message("✅ Conexión SQL Server establecida correctamente.")
-
-        query = """
-        SELECT TOP 100
+QUERY = """
+    SELECT TOP 250
         IdCita AS Registro,
         HorSitCita AS CitMod,
         FecAlta AS FechaAlta,
@@ -193,68 +79,204 @@ def fetch_rows_from_sql():
         END AS Odontologo,
         CONVERT(NVARCHAR(MAX), NOTAS) AS Notas,
         CAST(CAST(Duracion AS DECIMAL(10, 2)) / 60 AS INT) AS Duracion
-        FROM dbo.DCitas
-        ORDER BY HorSitCita DESC;
-        """
-
-        log_message("Ejecutando consulta SQL...")
-        cursor.execute(query)
-        rows = cursor.fetchall()
-        columns = [column[0] for column in cursor.description]
-        log_message(f"✅ Consulta ejecutada. Se encontraron {len(rows)} registros.")
-        return [dict(zip(columns, row)) for row in rows]
-
-    except pyodbc.Error as ex:
-        log_message(f"❌ ERROR BD: {ex}")
-        raise
-    except Exception as e:
-        log_message(f"❌ ERROR CRÍTICO: {e}")
-        raise
-    finally:
-        if cursor:
-            cursor.close()
-            log_message("🔒 Cursor cerrado.")
-        if conn:
-            conn.close()
-            log_message("🔒 Conexión cerrada.")
+    FROM dbo.DCitas
+    ORDER BY HorSitCita DESC;
+"""
 
 
-def normalize_row(data: dict) -> dict:
-    normalized = {}
-    for key, value in data.items():
-        if isinstance(value, (bytes, bytearray)):
-            normalized[key] = value.decode('utf-8', errors='ignore')
-        elif isinstance(value, datetime.datetime):
-            normalized[key] = value.strftime("%Y-%m-%d %H:%M:%S")
-        elif value is None:
-            normalized[key] = ""
-        else:
-            normalized[key] = str(value)
-    return normalized
+def log(msg: str) -> None:
+    now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    print(f"[{now}] {msg}")
 
 
-def main():
+# --- SQL Server ---
+
+def connect_db() -> Tuple[pyodbc.Connection, pyodbc.Cursor]:
+    log(f"Conectando a SQL Server: {DB_SERVER}/{DB_DATABASE}")
+    conn = pyodbc.connect(
+        f"DRIVER={{{{DB_DRIVER}}}};".replace('{DB_DRIVER}', DB_DRIVER) +
+        f"SERVER={DB_SERVER};DATABASE={DB_DATABASE};Trusted_Connection=yes;",
+        timeout=30,
+    )
+    return conn, conn.cursor()
+
+
+def fetch_rows(cursor: pyodbc.Cursor) -> List[Dict[str, Any]]:
+    log("Ejecutando consulta SQL...")
+    cursor.execute(QUERY)
+    rows = cursor.fetchall()
+    columns = [col[0] for col in cursor.description]
+    log(f"Consulta ejecutada. Registros: {len(rows)}")
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        d = {k: v for k, v in zip(columns, r)}
+        norm: Dict[str, str] = {}
+        for k, v in d.items():
+            if isinstance(v, (bytes, bytearray)):
+                norm[k] = v.decode('utf-8', errors='ignore')
+            elif isinstance(v, (datetime.date, datetime.datetime)):
+                if isinstance(v, datetime.datetime):
+                    norm[k] = v.strftime('%Y-%m-%d %H:%M:%S')
+                else:
+                    norm[k] = v.strftime('%Y-%m-%d')
+            elif v is None:
+                norm[k] = ''
+            else:
+                norm[k] = str(v)
+        out.append(norm)
+    return out
+
+
+# --- Google Sheets (Service Account) ---
+
+def authorize_sheets() -> gspread.Worksheet:
+    log("Autenticando con Google Sheets (Service Account)...")
+    scopes = [
+        'https://www.googleapis.com/auth/spreadsheets',
+        'https://www.googleapis.com/auth/drive',
+    ]
+    credentials = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=scopes)
+    gc = gspread.authorize(credentials)
+    ss = gc.open_by_key(GOOGLE_SHEET_ID)
     try:
-        rows = fetch_rows_from_sql()
-        if not rows:
-            log_message("ℹ️  No hay registros para exportar.")
-            sys.exit(0)
-
-        ok = 0
-        for i, row in enumerate(rows):
-            data = normalize_row(row)
-            log_message(f"➡️  [{i+1}/{len(rows)}] Enviando Registro: {data.get('Registro','')}")
-            if send_to_google_sheets(data):
-                ok += 1
-
-        log_message("\n📊 RESUMEN:")
-        log_message(f"    Total: {len(rows)}")
-        log_message(f"    Exitosos a Sheets: {ok}/{len(rows)}")
-
-        sys.exit(0 if ok > 0 else 1)
-    except Exception:
-        sys.exit(1)
+        ws = ss.worksheet(TARGET_WORKSHEET)
+        log(f"Usando hoja '{TARGET_WORKSHEET}'")
+    except gspread.exceptions.WorksheetNotFound:
+        log(f"Hoja '{TARGET_WORKSHEET}' no encontrada. Creando...")
+        ws = ss.add_worksheet(title=TARGET_WORKSHEET, rows=1000, cols=20)
+    # Cabeceras aseguradas
+    values = ws.get_all_values()
+    if not values or (values and (len(values[0]) == 0 or values[0][0].strip() != 'Registro')):
+        log("Escribiendo cabeceras en fila 1")
+        ws.update('A1:O1', [HEADERS])
+    return ws
 
 
-if __name__ == "__main__":
-    main()
+def row_from_record(d: Dict[str, str]) -> List[str]:
+    return [
+        d.get('Registro', ''),
+        d.get('CitMod', ''),
+        d.get('FechaAlta', ''),
+        d.get('NumPac', ''),
+        d.get('Apellidos', ''),
+        d.get('Nombre', ''),
+        d.get('TelMovil', ''),
+        d.get('Fecha', ''),
+        d.get('Hora', ''),
+        d.get('EstadoCita', ''),
+        d.get('Tratamiento', ''),
+        d.get('Odontologo', ''),
+        d.get('Notas', ''),
+        d.get('Duracion', ''),
+        datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+    ]
+
+
+def build_index(ws: gspread.Worksheet) -> Dict[str, int]:
+    values = ws.get_all_values()
+    index: Dict[str, int] = {}
+    for i, row in enumerate(values, start=1):
+        if i == 1:
+            continue
+        if not row:
+            continue
+        key = (row[0] if len(row) > 0 else '').strip()
+        if key:
+            index[key] = i
+    return index
+
+
+def upsert_and_prune(ws: gspread.Worksheet, records: List[Dict[str, str]]) -> None:
+    existing_index = build_index(ws)
+    registros_actuales_sql = set()
+
+    updates: List[Tuple[str, List[List[str]]]] = []  # (range, values)
+    appends: List[List[str]] = []
+
+    for d in records:
+        registro = d.get('Registro', '').strip()
+        if not registro:
+            continue
+        registros_actuales_sql.add(registro)
+
+        citmod = d.get('CitMod', '')
+        fecha_alta = d.get('FechaAlta', '')
+        is_new = citmod == fecha_alta
+
+        new_row = row_from_record(d)
+
+        if registro in existing_index:
+            row_number = existing_index[registro]
+            rng = f"A{row_number}:O{row_number}"
+            updates.append((rng, [new_row]))
+            log(f"UPDATE ({'NUEVA' if is_new else 'MOD'}) Registro {registro} -> fila {row_number}")
+        else:
+            appends.append(new_row)
+            log(f"APPEND ({'NUEVA' if is_new else 'MOD'}) Registro {registro}")
+
+    if updates:
+        log(f"Ejecutando {len(updates)} updates en lote...")
+        ws.batch_update([{ 'range': r, 'values': v } for r, v in updates])
+
+    for row in appends:
+        ws.append_row(row, value_input_option='RAW')
+    if appends:
+        log(f"Ejecutados {len(appends)} appends")
+
+    # Borrado de filas que ya no aparecen
+    existing_index_after = build_index(ws)
+    registros_sheet = set(existing_index_after.keys())
+    to_delete = sorted([existing_index_after[r] for r in registros_sheet - registros_actuales_sql], reverse=True)
+    if to_delete:
+        log(f"Eliminando {len(to_delete)} filas obsoletas...")
+        for row_num in to_delete:
+            ws.delete_rows(row_num)
+
+
+def main() -> int:
+    log("Inicio de sincronización Gesden → Google Sheets (Service Account)")
+    conn = None
+    cursor = None
+    try:
+        conn, cursor = connect_db()
+        records = fetch_rows(cursor)
+        if not records:
+            log("No hay registros para procesar.")
+        else:
+            log(f"Procesando {len(records)} registros...")
+            ws = authorize_sheets()
+            upsert_and_prune(ws, records)
+            log("Sincronización completada correctamente.")
+        return 0
+    except pyodbc.Error as ex:
+        log(f"ERROR BD: {ex}")
+        return 1
+    except gspread.exceptions.APIError as ex:
+        log(f"ERROR Google Sheets API: {ex}")
+        return 2
+    except Exception as ex:
+        log(f"ERROR no controlado: {ex}")
+        return 3
+    finally:
+        try:
+            if cursor is not None:
+                cursor.close()
+                log("🔒 Cursor cerrado.")
+        except Exception:
+            pass
+        try:
+            if conn is not None:
+                conn.close()
+                log("🔒 Conexión cerrada.")
+        except Exception:
+            pass
+        log("Fin de proceso.")
+        if sys.stdin and sys.stdin.isatty():
+            try:
+                input("\nPulsa Enter para salir...")
+            except EOFError:
+                pass
+
+
+if __name__ == '__main__':
+    sys.exit(main())
