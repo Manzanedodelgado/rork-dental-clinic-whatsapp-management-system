@@ -49,11 +49,11 @@ const defaultCredentials = {
 
 export const [AuthProvider, useAuth] = createContextHook(() => {
   const storage = useStorage();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true); // Start as authenticated for demo
+  const [user, setUser] = useState<User | null>(defaultUsers[0]); // Default to first admin user
   const [users, setUsers] = useState<User[]>(defaultUsers);
   const [credentials, setCredentials] = useState<Record<string, string>>(defaultCredentials);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Start as not loading
 
   // Load auth state on mount
   useEffect(() => {

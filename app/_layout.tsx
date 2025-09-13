@@ -1,17 +1,25 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
-import { StyleSheet } from "react-native";
+import React, { useEffect, useState } from "react";
+import { StyleSheet, View, Text, ActivityIndicator } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StorageProvider } from "@/hooks/useStorage";
 import { ClinicProvider } from "@/hooks/useClinicStore";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import LoginScreen from "@/app/login";
+import Colors from "@/constants/colors";
 
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 5 * 60 * 1000,
+    },
+  },
+});
 
 function RootLayoutNav() {
   return (
@@ -29,11 +37,40 @@ function RootLayoutNav() {
   );
 }
 
+function LoadingScreen() {
+  return (
+    <View style={styles.loadingContainer}>
+      <ActivityIndicator size="large" color={Colors.light.primary} />
+      <Text style={styles.loadingText}>Cargando aplicación...</Text>
+    </View>
+  );
+}
+
 function AuthenticatedApp() {
   const { isAuthenticated, isLoading } = useAuth();
+  const [appReady, setAppReady] = useState(false);
 
-  if (isLoading) {
-    return null;
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        // Simulate app initialization
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        setAppReady(true);
+        await SplashScreen.hideAsync();
+      } catch (error) {
+        console.error('Error initializing app:', error);
+        setAppReady(true);
+        await SplashScreen.hideAsync();
+      }
+    };
+
+    if (!isLoading) {
+      initializeApp();
+    }
+  }, [isLoading]);
+
+  if (isLoading || !appReady) {
+    return <LoadingScreen />;
   }
 
   if (!isAuthenticated) {
@@ -44,14 +81,20 @@ function AuthenticatedApp() {
 }
 
 export default function RootLayout() {
+  const [providersReady, setProvidersReady] = useState(false);
+
   useEffect(() => {
-    // Hide splash screen after a short delay to ensure everything is loaded
+    // Initialize providers
     const timer = setTimeout(() => {
-      SplashScreen.hideAsync();
+      setProvidersReady(true);
     }, 100);
     
     return () => clearTimeout(timer);
   }, []);
+
+  if (!providersReady) {
+    return <LoadingScreen />;
+  }
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -71,5 +114,17 @@ export default function RootLayout() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.light.background,
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: Colors.light.text,
+    fontWeight: '500',
   },
 });

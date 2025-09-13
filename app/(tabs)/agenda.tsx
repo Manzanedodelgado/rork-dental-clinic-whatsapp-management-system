@@ -8,6 +8,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Calendar, Plus, User, Edit3, ChevronLeft, ChevronRight, RefreshCw, Wifi, WifiOff, Clock, Phone, Stethoscope, FileText, AlertCircle, UserCheck, MapPin, CalendarDays } from 'lucide-react-native';
@@ -75,14 +76,18 @@ export default function AgendaScreen() {
   
   // Context hook - always called after state hooks
   const { 
-    appointments, 
-    isLoading, 
-    isSyncing, 
+    appointments = [], 
+    isLoading = false, 
+    isSyncing = false, 
     syncNow, 
     lastSyncTime, 
     syncError, 
-    isConnected 
+    isConnected = true 
   } = useClinic();
+
+  console.log('🔍 AgendaScreen render - appointments:', appointments?.length || 0);
+  console.log('🔍 AgendaScreen render - isLoading:', isLoading);
+  console.log('🔍 AgendaScreen render - selectedDate:', selectedDate);
 
   // Auto-refresh when component mounts
   useEffect(() => {
