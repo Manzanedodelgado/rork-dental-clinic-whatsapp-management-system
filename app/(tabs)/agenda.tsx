@@ -10,7 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Calendar, Plus, User, Edit3, ChevronLeft, ChevronRight, RefreshCw, Wifi, WifiOff, Clock, Phone, Stethoscope, FileText, AlertCircle, UserCheck, MapPin } from 'lucide-react-native';
+import { Calendar, Plus, User, Edit3, ChevronLeft, ChevronRight, RefreshCw, Wifi, WifiOff, Clock, Phone, Stethoscope, FileText, AlertCircle, UserCheck, MapPin, CalendarDays } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import { useClinic } from '@/hooks/useClinicStore';
 import { GoogleSheetsService } from '@/services/googleSheetsService';
@@ -44,9 +44,10 @@ const APPOINTMENT_STATUSES = [
 ] as const;
 
 const TIME_SLOTS = [
+  '08:00','08:30',
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
   '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00'
+  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30'
 ];
 
 export default function AgendaScreen() {
@@ -242,6 +243,39 @@ export default function AgendaScreen() {
     setCurrentMonth(new Date(yyyy, base.getMonth(), 1));
   }, [selectedDate]);
 
+  const weekStripDays = useMemo(() => {
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const base = new Date(y, m - 1, d);
+    const dayOfWeek = base.getDay();
+    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    const monday = new Date(base);
+    monday.setDate(base.getDate() + mondayOffset);
+    const days: { key: string; label: string; day: number; isToday: boolean; count: number }[] = [];
+    const todayStr = new Date().toISOString().split('T')[0];
+    for (let i = 0; i < 7; i++) {
+      const dte = new Date(monday);
+      dte.setDate(monday.getDate() + i);
+      const key = dte.toISOString().split('T')[0];
+      const label = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][i];
+      const count = appointments.filter(a => a.date === key).length;
+      days.push({ key, label, day: dte.getDate(), isToday: key === todayStr, count });
+    }
+    return days;
+  }, [selectedDate, appointments]);
+
+  const appointmentsByTime = useMemo(() => {
+    const map: Record<string, Appointment[]> = {};
+    TIME_SLOTS.forEach(t => { map[t] = []; });
+    selectedDateAppointments.forEach(a => {
+      const t = a.time ?? '';
+      if (map[t]) map[t].push(a); else {
+        if (!map['otros']) map['otros'] = [] as unknown as Appointment[];
+        map['otros'].push(a);
+      }
+    });
+    return map;
+  }, [selectedDateAppointments]);
+
   const handleCreateAppointment = () => {
     if (!newAppointment.patientName.trim() || !newAppointment.treatment.trim()) {
       console.log('Error: Por favor completa todos los campos obligatorios');
@@ -434,6 +468,54 @@ export default function AgendaScreen() {
           </Text>
         </View>
 
+        <View style={styles.weekStrip}>
+          <TouchableOpacity onPress={() => shiftSelectedDate(-7)} style={styles.weekNavBtn} testID="agenda-prev-week">
+            <ChevronLeft size={16} color={Colors.light.primary} />
+          </TouchableOpacity>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekDaysScroll} contentContainerStyle={styles.weekDaysScrollContent}>
+            {weekStripDays.map(d => {
+              const isSelected = d.key === selectedDate;
+              return (
+                <TouchableOpacity
+                  key={d.key}
+                  onPress={() => setSelectedDate(d.key)}
+                  style={[styles.weekPill, isSelected && styles.weekPillSelected, d.isToday && styles.weekPillToday]}
+                  testID={`agenda-week-pill-${d.key}`}
+                >
+                  <Text style={[styles.weekPillLabel, isSelected && styles.weekPillLabelSelected]}>{d.label}</Text>
+                  <Text style={[styles.weekPillDay, isSelected && styles.weekPillDaySelected]}>{d.day}</Text>
+                  {d.count > 0 ? (
+                    <View style={styles.weekPillBadge}>
+                      <Text style={styles.weekPillBadgeText}>{d.count}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <TouchableOpacity onPress={() => shiftSelectedDate(7)} style={styles.weekNavBtn} testID="agenda-next-week">
+            <ChevronRight size={16} color={Colors.light.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.calendarHeader}>
+          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.monthNavButton}>
+            <ChevronLeft size={20} color={Colors.light.primary} />
+          </TouchableOpacity>
+          <Text style={styles.monthTitle}>
+            {currentMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+          </Text>
+          <View style={styles.calendarHeaderActions}>
+            <TouchableOpacity onPress={() => setShowCalendar(prev => !prev)} style={styles.toggleCalendarBtn} testID="toggle-calendar">
+              <CalendarDays size={16} color={Colors.light.primary} />
+              <Text style={styles.toggleCalendarText}>{showCalendar ? 'Ocultar' : 'Ver'} calendario</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.monthNavButton}>
+              <ChevronRight size={20} color={Colors.light.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <View style={styles.dateSelectorCard}>
           <Text style={styles.selectorLabel}>Seleccionar Fecha</Text>
           <View style={styles.dateSelectorRow}>
@@ -456,18 +538,6 @@ export default function AgendaScreen() {
           </View>
         </View>
 
-        {/* Calendar Header */}
-        <View style={styles.calendarHeader}>
-          <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.monthNavButton}>
-            <ChevronLeft size={20} color={Colors.light.primary} />
-          </TouchableOpacity>
-          <Text style={styles.monthTitle}>
-            {currentMonth.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
-          </Text>
-          <TouchableOpacity onPress={() => navigateMonth('next')} style={styles.monthNavButton}>
-            <ChevronRight size={20} color={Colors.light.primary} />
-          </TouchableOpacity>
-        </View>
 
         {/* Modern Calendar Grid */}
         {showCalendar && (
@@ -571,138 +641,132 @@ export default function AgendaScreen() {
               </TouchableOpacity>
             </View>
           ) : (
-            <View style={styles.appointmentsList}>
+            <View style={styles.timelineWrapper}>
               <Text style={styles.appointmentsCount}>
                 {selectedDateAppointments.length} cita{selectedDateAppointments.length !== 1 ? 's' : ''}
               </Text>
-              {selectedDateAppointments.map((appointment, index) => {
-                const syncIndicator = getSyncIndicator(appointment);
-                
-                return (
-                  <View key={appointment.id || index} style={styles.appointmentCard}>
-                    {/* Header with time and sync indicator */}
-                    <View style={styles.appointmentHeader}>
-                      <View style={styles.appointmentTime}>
-                        <View style={[styles.timeIndicator, { backgroundColor: getStatusColor(appointment.status) }]} />
-                        <Clock size={16} color={Colors.light.text} />
-                        <Text style={styles.appointmentTimeText}>{appointment.time || 'Sin hora'}</Text>
-                        {appointment.duration ? (
-                          <Text style={styles.appointmentDuration}>({appointment.duration}min)</Text>
-                        ) : null}
-                      </View>
-                      
-                      <View style={styles.appointmentHeaderRight}>
-                        {syncIndicator ? (
-                          <View style={[styles.syncIndicator, { backgroundColor: syncIndicator.color + '20' }]}>
-                            <AlertCircle size={12} color={syncIndicator.color} />
-                            <Text style={[styles.syncIndicatorText, { color: syncIndicator.color }]}>
-                              {syncIndicator.label}
-                            </Text>
-                          </View>
-                        ) : null}
-                        <TouchableOpacity
-                          style={styles.editButton}
-                          onPress={() => {
-                            if (appointment?.id?.trim() && appointment.id.length <= 100 && appointment.patientName?.trim() && appointment.patientName.length <= 200) {
-                              setEditingAppointment(appointment);
-                            }
-                          }}
-                        >
-                          <Edit3 size={16} color={Colors.light.tabIconDefault} />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                    
-                    {/* Patient Information */}
-                    <View style={styles.appointmentInfo}>
-                      <View style={styles.appointmentPatient}>
-                        <User size={18} color={Colors.light.primary} />
-                        <View style={styles.patientDetails}>
-                          <Text style={styles.appointmentPatientName}>
-                            {appointment.nombre} {appointment.apellidos}
-                          </Text>
-                          {appointment.numPac ? (
-                            <Text style={styles.patientNumber}>Paciente #{appointment.numPac}</Text>
-                          ) : null}
-                          {appointment.telMovil ? (
-                            <View style={styles.phoneContainer}>
-                              <Phone size={14} color={Colors.light.tabIconDefault} />
-                              <Text style={styles.phoneText}>{appointment.telMovil}</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      </View>
-                      
-                      {/* Treatment */}
-                      <View style={styles.treatmentContainer}>
-                        <Stethoscope size={16} color={Colors.light.accent} />
-                        <Text style={styles.appointmentTreatment}>{appointment.treatment}</Text>
-                      </View>
-                      
-                      {/* Dentist */}
-                      {(appointment.dentist || appointment.odontologo) ? (
-                        <Text style={styles.appointmentDentist}>
-                          Dr. {appointment.dentist || appointment.odontologo}
-                        </Text>
-                      ) : null}
-                      
-                      {/* Notes */}
-                      {appointment.notes ? (
-                        <View style={styles.notesContainer}>
-                          <FileText size={14} color={Colors.light.tabIconDefault} />
-                          <Text style={styles.appointmentNotes}>{appointment.notes}</Text>
-                        </View>
-                      ) : null}
-                      
-                      {/* Registration Info */}
-                      <View style={styles.registrationInfo}>
-                        <View style={styles.registrationRow}>
-                          <Text style={styles.registrationText}>Registro: {appointment.registro}</Text>
-                          {appointment.fechaAlta ? (
-                            <Text style={styles.registrationText}>
-                              Creada: {new Date(appointment.fechaAlta).toLocaleDateString('es-ES')}
-                            </Text>
-                          ) : null}
-                        </View>
-                        {appointment.citMod && appointment.fechaAlta && appointment.citMod !== appointment.fechaAlta ? (
-                          <Text style={styles.modifiedText}>
-                            Modificada: {new Date(appointment.citMod).toLocaleDateString('es-ES')}
-                          </Text>
-                        ) : null}
-                      </View>
-                    </View>
 
-                    {/* Footer with editable status */}
-                    <View style={styles.appointmentFooter}>
-                      <TouchableOpacity
-                        style={[
-                          styles.statusBadge,
-                          { backgroundColor: getStatusColor(appointment.status) + '15' }
-                        ]}
-                        onPress={() => setEditingAppointment(appointment)}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.statusDot, { backgroundColor: getStatusColor(appointment.status) }]} />
-                        <Text style={[
-                          styles.statusText,
-                          { color: getStatusColor(appointment.status) }
-                        ]}>
-                          {getStatusLabel(appointment.status)}
-                        </Text>
-                        <Edit3 size={12} color={getStatusColor(appointment.status)} />
-                      </TouchableOpacity>
-                      
-                      {/* Situación indicator if different from status */}
-                      {appointment.situacion && appointment.situacion !== appointment.status ? (
-                        <View style={styles.situacionBadge}>
-                          <Text style={styles.situacionText}>Situación: {appointment.situacion}</Text>
-                        </View>
-                      ) : null}
+              <View style={styles.timelineContainer}>
+                <View style={styles.timelineBar} />
+                {TIME_SLOTS.map((slot) => {
+                  const items = appointmentsByTime[slot] ?? [];
+                  return (
+                    <View key={slot} style={styles.timelineRow}>
+                      <View style={styles.timelineTimeCell}>
+                        <Text style={styles.timelineTimeText}>{slot}</Text>
+                      </View>
+                      <View style={styles.timelineContentCell}>
+                        {items.length === 0 ? (
+                          <View style={styles.timelineEmptyBlock} />
+                        ) : (
+                          items.map((appointment, index) => {
+                            const syncIndicator = getSyncIndicator(appointment);
+                            return (
+                              <View key={(appointment.id ?? '') + index.toString()} style={styles.appointmentCard}>
+                                <View style={styles.appointmentHeader}>
+                                  <View style={styles.appointmentTime}>
+                                    <View style={[styles.timeIndicator, { backgroundColor: getStatusColor(appointment.status) }]} />
+                                    <Clock size={16} color={Colors.light.text} />
+                                    <Text style={styles.appointmentTimeText}>{appointment.time || 'Sin hora'}</Text>
+                                    {appointment.duration ? (
+                                      <Text style={styles.appointmentDuration}>({appointment.duration}min)</Text>
+                                    ) : null}
+                                  </View>
+                                  <View style={styles.appointmentHeaderRight}>
+                                    {syncIndicator ? (
+                                      <View style={[styles.syncIndicator, { backgroundColor: syncIndicator.color + '20' }]}>
+                                        <AlertCircle size={12} color={syncIndicator.color} />
+                                        <Text style={[styles.syncIndicatorText, { color: syncIndicator.color }]}>
+                                          {syncIndicator.label}
+                                        </Text>
+                                      </View>
+                                    ) : null}
+                                    <TouchableOpacity style={styles.editButton} onPress={() => {
+                                      if (appointment?.id?.trim() && appointment.patientName?.trim()) setEditingAppointment(appointment);
+                                    }}>
+                                      <Edit3 size={16} color={Colors.light.tabIconDefault} />
+                                    </TouchableOpacity>
+                                  </View>
+                                </View>
+
+                                <View style={styles.appointmentInfo}>
+                                  <View style={styles.appointmentPatient}>
+                                    <User size={18} color={Colors.light.primary} />
+                                    <View style={styles.patientDetails}>
+                                      <Text style={styles.appointmentPatientName}>
+                                        {appointment.nombre} {appointment.apellidos}
+                                      </Text>
+                                      {appointment.numPac ? (
+                                        <Text style={styles.patientNumber}>Paciente #{appointment.numPac}</Text>
+                                      ) : null}
+                                      {appointment.telMovil ? (
+                                        <View style={styles.phoneContainer}>
+                                          <Phone size={14} color={Colors.light.tabIconDefault} />
+                                          <Text style={styles.phoneText}>{appointment.telMovil}</Text>
+                                        </View>
+                                      ) : null}
+                                    </View>
+                                  </View>
+                                  <View style={styles.treatmentContainer}>
+                                    <Stethoscope size={16} color={Colors.light.accent} />
+                                    <Text style={styles.appointmentTreatment}>{appointment.treatment}</Text>
+                                  </View>
+                                  {(appointment.dentist || appointment.odontologo) ? (
+                                    <Text style={styles.appointmentDentist}>
+                                      Dr. {appointment.dentist || appointment.odontologo}
+                                    </Text>
+                                  ) : null}
+                                  {appointment.notes ? (
+                                    <View style={styles.notesContainer}>
+                                      <FileText size={14} color={Colors.light.tabIconDefault} />
+                                      <Text style={styles.appointmentNotes}>{appointment.notes}</Text>
+                                    </View>
+                                  ) : null}
+                                  <View style={styles.registrationInfo}>
+                                    <View style={styles.registrationRow}>
+                                      <Text style={styles.registrationText}>Registro: {appointment.registro}</Text>
+                                      {appointment.fechaAlta ? (
+                                        <Text style={styles.registrationText}>
+                                          Creada: {new Date(appointment.fechaAlta).toLocaleDateString('es-ES')}
+                                        </Text>
+                                      ) : null}
+                                    </View>
+                                    {appointment.citMod && appointment.fechaAlta && appointment.citMod !== appointment.fechaAlta ? (
+                                      <Text style={styles.modifiedText}>
+                                        Modificada: {new Date(appointment.citMod).toLocaleDateString('es-ES')}
+                                      </Text>
+                                    ) : null}
+                                  </View>
+                                </View>
+                                <View style={styles.appointmentFooter}>
+                                  <TouchableOpacity
+                                    style={[styles.statusBadge, { backgroundColor: getStatusColor(appointment.status) + '15' }]}
+                                    onPress={() => setEditingAppointment(appointment)}
+                                    activeOpacity={0.7}
+                                  >
+                                    <View style={[styles.statusDot, { backgroundColor: getStatusColor(appointment.status) }]} />
+                                    <Text style={[styles.statusText, { color: getStatusColor(appointment.status) }]}>
+                                      {getStatusLabel(appointment.status)}
+                                    </Text>
+                                    <Edit3 size={12} color={getStatusColor(appointment.status)} />
+                                  </TouchableOpacity>
+                                  {appointment.situacion && appointment.situacion !== appointment.status ? (
+                                    <View style={styles.situacionBadge}>
+                                      <Text style={styles.situacionText}>Situación: {appointment.situacion}</Text>
+                                    </View>
+                                  ) : null}
+                                </View>
+                              </View>
+                            );
+                          })
+                        )}
+                      </View>
                     </View>
-                  </View>
-                );
-              })}
+                  );
+                })}
+              </View>
             </View>
+
           )}
         </View>
       </ScrollView>
@@ -960,8 +1024,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 12,
     backgroundColor: Colors.light.surface,
+  },
+  calendarHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  toggleCalendarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: Colors.light.background,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  toggleCalendarText: {
+    fontSize: 12,
+    color: Colors.light.primary,
+    fontWeight: '600',
   },
   monthNavButton: {
     padding: 8,
@@ -980,6 +1065,74 @@ const styles = StyleSheet.create({
     marginBottom: 0,
     borderRadius: 0,
     padding: 16,
+  },
+  weekStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 8,
+    gap: 8,
+  },
+  weekNavBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
+  weekDaysScroll: {
+    flex: 1,
+  },
+  weekDaysScrollContent: {
+    paddingHorizontal: 4,
+  },
+  weekPill: {
+    width: 64,
+    paddingVertical: 10,
+    marginHorizontal: 4,
+    borderRadius: 14,
+    backgroundColor: Colors.light.surface,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    position: 'relative',
+  },
+  weekPillToday: {
+    borderColor: Colors.light.accent,
+  },
+  weekPillSelected: {
+    backgroundColor: Colors.light.primary,
+    borderColor: Colors.light.primary,
+  },
+  weekPillLabel: {
+    fontSize: 11,
+    color: Colors.light.tabIconDefault,
+    fontWeight: '600',
+  },
+  weekPillLabelSelected: {
+    color: Colors.light.surface,
+  },
+  weekPillDay: {
+    fontSize: 16,
+    color: Colors.light.text,
+    fontWeight: '700',
+  },
+  weekPillDaySelected: {
+    color: Colors.light.surface,
+  },
+  weekPillBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 8,
+    backgroundColor: Colors.light.success,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  weekPillBadgeText: {
+    fontSize: 10,
+    color: Colors.light.surface,
+    fontWeight: '700',
   },
   weekDaysHeader: {
     flexDirection: 'row',
@@ -1131,6 +1284,48 @@ const styles = StyleSheet.create({
   },
   appointmentsList: {
     gap: 16,
+  },
+  timelineWrapper: {
+    gap: 12,
+  },
+  timelineContainer: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  timelineBar: {
+    position: 'absolute',
+    left: 52,
+    top: 0,
+    bottom: 0,
+    width: 2,
+    backgroundColor: Colors.light.border,
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  timelineTimeCell: {
+    width: 60,
+    alignItems: 'flex-end',
+    paddingRight: 8,
+  },
+  timelineTimeText: {
+    fontSize: 12,
+    color: Colors.light.tabIconDefault,
+    fontWeight: '600',
+  },
+  timelineContentCell: {
+    flex: 1,
+    paddingLeft: 12,
+    gap: 12,
+  },
+  timelineEmptyBlock: {
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: Colors.light.surface,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
   },
   addAppointmentButton: {
     flexDirection: 'row',
