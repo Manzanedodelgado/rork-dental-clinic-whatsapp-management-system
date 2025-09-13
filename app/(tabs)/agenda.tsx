@@ -35,6 +35,13 @@ interface NewAppointment {
   duration: number;
 }
 
+const dateToKey = (date: Date): string => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+};
+
 const APPOINTMENT_STATUSES = [
   { key: 'Planificada', label: 'Planificada', color: '#3B82F6', icon: 'Calendar' },
   { key: 'Finalizada', label: 'Finalizada', color: '#10B981', icon: 'UserCheck' },
@@ -53,7 +60,7 @@ const TIME_SLOTS = [
 export default function AgendaScreen() {
   // Always call hooks in the same order
   const insets = useSafeAreaInsets();
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(dateToKey(new Date()));
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [showNewAppointmentModal, setShowNewAppointmentModal] = useState<boolean>(false);
   const [showCalendar, setShowCalendar] = useState<boolean>(false);
@@ -98,7 +105,7 @@ export default function AgendaScreen() {
     
     const days: CalendarDay[] = [];
     const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = dateToKey(today);
     
     console.log('📅 Generating calendar for:', currentMonth.toLocaleDateString('es-ES'));
     console.log('📅 Today is:', todayStr);
@@ -108,7 +115,7 @@ export default function AgendaScreen() {
     for (let i = 0; i < 42; i++) {
       const date = new Date(startDate);
       date.setDate(startDate.getDate() + i);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = dateToKey(date);
       
       // Debug specific dates
       if (dateString === '2025-07-07' || dateString === '2025-07-06' || dateString === '2025-07-08') {
@@ -251,11 +258,11 @@ export default function AgendaScreen() {
     const monday = new Date(base);
     monday.setDate(base.getDate() + mondayOffset);
     const days: { key: string; label: string; day: number; isToday: boolean; count: number }[] = [];
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = dateToKey(new Date());
     for (let i = 0; i < 7; i++) {
       const dte = new Date(monday);
       dte.setDate(monday.getDate() + i);
-      const key = dte.toISOString().split('T')[0];
+      const key = dateToKey(dte);
       const label = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][i];
       const count = appointments.filter(a => a.date === key).length;
       days.push({ key, label, day: dte.getDate(), isToday: key === todayStr, count });
@@ -529,7 +536,7 @@ export default function AgendaScreen() {
                 const ok = /^\d{4}-\d{2}-\d{2}$/.test(text);
                 if (ok) setSelectedDate(text);
               }}
-              placeholder={new Date().toISOString().split('T')[0]}
+              placeholder={dateToKey(new Date())}
               testID="agenda-date-input"
             />
             <TouchableOpacity onPress={() => shiftSelectedDate(1)} style={styles.dayShiftBtn} testID="agenda-next-day">
@@ -628,7 +635,7 @@ export default function AgendaScreen() {
               <Calendar size={48} color={Colors.light.tabIconDefault} />
               <Text style={styles.noAppointmentsText}>No hay citas programadas</Text>
               <Text style={styles.noAppointmentsSubtext}>
-                {selectedDate === new Date().toISOString().split('T')[0] 
+                {selectedDate === dateToKey(new Date()) 
                   ? 'No tienes citas para hoy' 
                   : `No hay citas para ${formatDate(selectedDate).split(',')[0]}`}
               </Text>
