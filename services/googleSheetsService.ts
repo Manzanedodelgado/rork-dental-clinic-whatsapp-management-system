@@ -92,11 +92,11 @@ export class GoogleSheetsService {
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        'Accept': 'text/plain,*/*',
-        'User-Agent': 'RubioGarciaApp/1.0'
+        Accept: 'text/plain,*/*',
       },
+      redirect: 'follow',
       signal: controller.signal,
-    });
+    } as RequestInit);
     clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error(`GViz JSON fetch failed: ${response.status} ${response.statusText}`);
@@ -113,7 +113,6 @@ export class GoogleSheetsService {
       r.c.forEach((cell, idx) => {
         row[idx] = (cell && cell.v != null) ? String(cell.v) : '';
       });
-      // Skip empty rows
       if (row.some((v) => (v ?? '').toString().trim() !== '')) {
         values.push(row);
       }
@@ -123,19 +122,18 @@ export class GoogleSheetsService {
   }
 
   private static async fetchWithCSV(): Promise<any[][] | null> {
-    try {
-      const csvUrl = this.getPublicCSVUrl();
-      console.log('🔄 Fetching CSV from:', csvUrl);
+    const tryFetchCsv = async (url: string): Promise<any[][]> => {
+      console.log('🔄 Fetching CSV from:', url);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(csvUrl, {
+      const response = await fetch(url, {
         method: 'GET',
         headers: {
-          'Accept': 'text/csv,text/plain,*/*',
-          'User-Agent': 'RubioGarciaApp/1.0'
+          Accept: 'text/csv,text/plain,*/*',
         },
-        signal: controller.signal
-      });
+        redirect: 'follow',
+        signal: controller.signal,
+      } as RequestInit);
       clearTimeout(timeoutId);
       if (!response.ok) {
         throw new Error(`CSV fetch failed: ${response.status} ${response.statusText}`);
@@ -145,10 +143,21 @@ export class GoogleSheetsService {
       if (!csvText.trim()) {
         throw new Error('Empty CSV response');
       }
-      const lines = csvText.split('\n').filter(line => line.trim());
-      const data = lines.map(line => this.parseCSVLine(line));
+      const lines = csvText.split('\n').filter((line) => line.trim());
+      const data = lines.map((line) => this.parseCSVLine(line));
       console.log(`✅ Parsed ${data.length} rows from CSV`);
       return data;
+    };
+
+    try {
+      const csvUrlGViz = this.getPublicCSVUrl();
+      try {
+        return await tryFetchCsv(csvUrlGViz);
+      } catch (e1) {
+        console.warn('⚠️ GViz CSV failed, trying export CSV fallback...', (e1 as Error).message);
+      }
+      const exportUrl = GOOGLE_SHEETS_URLS.getExportCsvUrl(GOOGLE_CONFIG.GOOGLE_SHEET_ID, '0');
+      return await tryFetchCsv(exportUrl);
     } catch (error) {
       console.error('❌ CSV fetch error:', error);
       throw error;
