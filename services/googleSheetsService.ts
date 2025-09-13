@@ -1,6 +1,5 @@
 import type { GoogleSheetsAppointment, Appointment, Patient, AppointmentSyncInfo } from '@/types';
 import { GOOGLE_CONFIG, GOOGLE_SHEETS_URLS } from '@/constants/googleConfig';
-import { Platform } from 'react-native';
 
 const { GOOGLE_SHEET_ID, SHEET_NAME } = GOOGLE_CONFIG;
 
@@ -23,19 +22,6 @@ export class GoogleSheetsService {
   private static getGvizJsonUrl(): string {
     const sheet = this.sanitizeSheetName(SHEET_NAME);
     return GOOGLE_SHEETS_URLS.getGvizJsonUrl(GOOGLE_SHEET_ID, sheet);
-  }
-
-  private static withCors(url: string): string {
-    const input = (url ?? '').toString();
-    if (!input.trim() || input.length > 2048) return input;
-    if (Platform.OS === 'web') {
-      const proxy = 'https://cors.isomorphic-git.org/';
-      if (input.startsWith('http://') || input.startsWith('https://')) {
-        return proxy + input;
-      }
-      return proxy + 'https://' + input.replace(/^\/+/, '');
-    }
-    return input;
   }
 
   static async fetchAppointments(): Promise<{ appointments: Appointment[], patients: Patient[] }> {
@@ -99,18 +85,18 @@ export class GoogleSheetsService {
   }
 
   private static async fetchWithGvizJSON(): Promise<any[][] | null> {
-    const url = this.withCors(this.getGvizJsonUrl());
+    const url = this.getGvizJsonUrl();
     console.log('🔄 Fetching GViz JSON from:', url);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
     const response = await fetch(url, {
       method: 'GET',
       headers: {
-        Accept: 'text/plain,*/*',
+        'Accept': 'text/plain,*/*',
+        'User-Agent': 'RubioGarciaApp/1.0'
       },
-      redirect: 'follow',
       signal: controller.signal,
-    } as RequestInit);
+    });
     clearTimeout(timeoutId);
     if (!response.ok) {
       throw new Error(`GViz JSON fetch failed: ${response.status} ${response.statusText}`);
@@ -127,6 +113,7 @@ export class GoogleSheetsService {
       r.c.forEach((cell, idx) => {
         row[idx] = (cell && cell.v != null) ? String(cell.v) : '';
       });
+      // Skip empty rows
       if (row.some((v) => (v ?? '').toString().trim() !== '')) {
         values.push(row);
       }
@@ -136,21 +123,19 @@ export class GoogleSheetsService {
   }
 
   private static async fetchWithCSV(): Promise<any[][] | null> {
-    const tryFetchCsv = async (url: string): Promise<any[][]> => {
-      console.log('🔄 Fetching CSV from:', url);
+    try {
+      const csvUrl = this.getPublicCSVUrl();
+      console.log('🔄 Fetching CSV from:', csvUrl);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(this.withCors(url), {
+      const response = await fetch(csvUrl, {
         method: 'GET',
         headers: {
-          Accept: 'text/csv,text/plain,*/*',
+          'Accept': 'text/csv,text/plain,*/*',
+          'User-Agent': 'RubioGarciaApp/1.0'
         },
-        redirect: 'follow',
-        signal: controller.signal,
-        credentials: 'omit',
-        mode: Platform.OS === 'web' ? 'cors' : undefined,
-        referrerPolicy: Platform.OS === 'web' ? 'no-referrer' : undefined,
-      } as RequestInit);
+        signal: controller.signal
+      });
       clearTimeout(timeoutId);
       if (!response.ok) {
         throw new Error(`CSV fetch failed: ${response.status} ${response.statusText}`);
@@ -160,21 +145,10 @@ export class GoogleSheetsService {
       if (!csvText.trim()) {
         throw new Error('Empty CSV response');
       }
-      const lines = csvText.split('\n').filter((line) => line.trim());
-      const data = lines.map((line) => this.parseCSVLine(line));
+      const lines = csvText.split('\n').filter(line => line.trim());
+      const data = lines.map(line => this.parseCSVLine(line));
       console.log(`✅ Parsed ${data.length} rows from CSV`);
       return data;
-    };
-
-    try {
-      const csvUrlGViz = this.getPublicCSVUrl();
-      try {
-        return await tryFetchCsv(csvUrlGViz);
-      } catch (e1) {
-        console.warn('⚠️ GViz CSV failed, trying export CSV fallback...', (e1 as Error).message);
-      }
-      const exportUrl = GOOGLE_SHEETS_URLS.getExportCsvUrl(GOOGLE_CONFIG.GOOGLE_SHEET_ID, '0');
-      return await tryFetchCsv(exportUrl);
     } catch (error) {
       console.error('❌ CSV fetch error:', error);
       throw error;
@@ -452,13 +426,9 @@ export class GoogleSheetsService {
   static async testConnection(): Promise<boolean> {
     try {
       console.log('🔍 Testing public Google Sheets (CSV) connection...');
-      const url = this.withCors(this.getCSVUrl());
+      const url = this.getCSVUrl();
       console.log('🌐 Test URL:', url);
-      const res = await fetch(url, {
-        credentials: 'omit',
-        mode: Platform.OS === 'web' ? 'cors' : undefined,
-        referrerPolicy: Platform.OS === 'web' ? 'no-referrer' : undefined,
-      } as RequestInit);
+      const res = await fetch(url);
       console.log('📡 Test response status:', res.status, res.statusText);
       if (!res.ok) return false;
       const text = await res.text();
