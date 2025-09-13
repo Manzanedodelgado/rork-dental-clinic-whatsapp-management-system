@@ -465,6 +465,10 @@ export default function AgendaScreen() {
         </View>
       </View>
 
+      <View style={styles.startingBanner} testID="starting-indicator">
+        <Text style={styles.startingBannerText}>Starting</Text>
+      </View>
+
       <ScrollView 
         style={styles.content} 
         showsVerticalScrollIndicator={false}
@@ -980,6 +984,24 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  startingBanner: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: Colors.light.accent + '20',
+    borderWidth: 1,
+    borderColor: Colors.light.accent + '40',
+    alignSelf: 'stretch',
+  },
+  startingBannerText: {
+    fontSize: 12,
+    color: Colors.light.accent,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   pageTitleRow: {
     paddingHorizontal: 20,
