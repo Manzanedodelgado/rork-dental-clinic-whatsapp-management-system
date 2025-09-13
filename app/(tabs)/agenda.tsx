@@ -240,33 +240,51 @@ export default function AgendaScreen() {
 
   const shiftSelectedDate = useCallback((days: number) => {
     const [y, m, d] = selectedDate.split('-').map(Number);
-    const base = new Date(y, m - 1, d);
+    // Create date at noon to avoid timezone issues
+    const base = new Date(y, m - 1, d, 12, 0, 0);
     base.setDate(base.getDate() + days);
     const yyyy = base.getFullYear();
     const mm = String(base.getMonth() + 1).padStart(2, '0');
     const dd = String(base.getDate()).padStart(2, '0');
     const next = `${yyyy}-${mm}-${dd}`;
+    console.log('🔄 Shifting date:', selectedDate, '+', days, 'days =', next);
     setSelectedDate(next);
     setCurrentMonth(new Date(yyyy, base.getMonth(), 1));
   }, [selectedDate]);
 
   const weekStripDays = useMemo(() => {
     const [y, m, d] = selectedDate.split('-').map(Number);
-    const base = new Date(y, m - 1, d);
+    // Create date at noon to avoid timezone issues
+    const base = new Date(y, m - 1, d, 12, 0, 0);
     const dayOfWeek = base.getDay();
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
     const monday = new Date(base);
     monday.setDate(base.getDate() + mondayOffset);
+    
+    console.log('📅 Week strip calculation:');
+    console.log('   Selected date:', selectedDate);
+    console.log('   Base date object:', base.toISOString());
+    console.log('   Day of week (0=Sun, 1=Mon):', dayOfWeek);
+    console.log('   Monday offset:', mondayOffset);
+    console.log('   Monday date:', monday.toISOString());
+    
     const days: { key: string; label: string; day: number; isToday: boolean; count: number }[] = [];
     const todayStr = dateToKey(new Date());
+    
     for (let i = 0; i < 7; i++) {
       const dte = new Date(monday);
       dte.setDate(monday.getDate() + i);
       const key = dateToKey(dte);
       const label = ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][i];
       const count = appointments.filter(a => a.date === key).length;
+      
+      console.log(`   Day ${i}: ${label} ${dte.getDate()} -> ${key} (${dte.toLocaleDateString('es-ES', { weekday: 'long' })})`);
+      
       days.push({ key, label, day: dte.getDate(), isToday: key === todayStr, count });
     }
+    
+    console.log('📅 Week strip days generated:', days.map(d => `${d.label} ${d.day} (${d.key})`).join(', '));
+    
     return days;
   }, [selectedDate, appointments]);
 
@@ -355,7 +373,8 @@ export default function AgendaScreen() {
   const formatDate = (dateString: string) => {
     // Parse date correctly to avoid timezone issues
     const [year, month, day] = dateString.split('-').map(Number);
-    const date = new Date(year, month - 1, day); // month is 0-indexed
+    // Create date at noon to avoid timezone shifts
+    const date = new Date(year, month - 1, day, 12, 0, 0); // month is 0-indexed
     return date.toLocaleDateString('es-ES', {
       weekday: 'long',
       year: 'numeric',
@@ -369,19 +388,22 @@ export default function AgendaScreen() {
       // Parse date correctly to avoid timezone issues
       const [year, month, day] = dateString.split('-').map(Number);
       
-      // Create date object using local time to avoid timezone shifts
+      // Create date object at noon to avoid timezone shifts
       // This ensures the day of week calculation is correct
-      const date = new Date(year, month - 1, day);
+      const date = new Date(year, month - 1, day, 12, 0, 0);
       
       console.log('🗓️ Formatting date:', dateString);
       console.log('🗓️ Date components: year=', year, 'month=', month, 'day=', day);
-      console.log('🗓️ Created Date object:', date.toISOString());
+      console.log('🗓️ Created Date object (at noon):', date.toISOString());
       console.log('🗓️ Local date string:', date.toLocaleDateString('es-ES'));
       console.log('🗓️ Day of week (0=Sunday, 1=Monday):', date.getDay());
       
       // Verify the date is correct by checking if it matches our input
-      const verifyDateStr = date.toISOString().split('T')[0];
-      console.log('🗓️ Verification - input:', dateString, 'output:', verifyDateStr);
+      const verifyYear = date.getFullYear();
+      const verifyMonth = String(date.getMonth() + 1).padStart(2, '0');
+      const verifyDay = String(date.getDate()).padStart(2, '0');
+      const verifyDateStr = `${verifyYear}-${verifyMonth}-${verifyDay}`;
+      console.log('🗓️ Verification - input:', dateString, 'output:', verifyDateStr, 'match:', dateString === verifyDateStr);
       
       // Get day names in Spanish (0=Sunday, 1=Monday, etc.)
       const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -393,18 +415,6 @@ export default function AgendaScreen() {
       
       const formatted = `${dayName}, ${day} De ${monthName} De ${year}`;
       console.log('🗓️ Final formatted date:', formatted);
-      
-      // Special verification for July 7, 2025
-      if (dateString === '2025-07-07') {
-        console.log('🔍 SPECIAL CHECK for July 7, 2025:');
-        console.log('   Input date string: 2025-07-07');
-        console.log('   Parsed components: year=2025, month=7, day=7');
-        console.log('   Date constructor: new Date(2025, 6, 7) // month is 0-indexed');
-        console.log('   Created date object:', new Date(2025, 6, 7));
-        console.log('   Day of week:', new Date(2025, 6, 7).getDay(), '(should be 1 for Monday)');
-        console.log('   Expected result: "Lunes, 7 De Julio De 2025"');
-        console.log('   Actual result:', formatted);
-      }
       
       return formatted;
     } catch (error) {
