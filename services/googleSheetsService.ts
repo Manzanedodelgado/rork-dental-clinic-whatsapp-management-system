@@ -1,5 +1,6 @@
 import type { GoogleSheetsAppointment, Appointment, Patient, AppointmentSyncInfo } from '@/types';
 import { GOOGLE_CONFIG, GOOGLE_SHEETS_URLS } from '@/constants/googleConfig';
+import { Platform } from 'react-native';
 
 const { GOOGLE_SHEET_ID, SHEET_NAME } = GOOGLE_CONFIG;
 
@@ -22,6 +23,19 @@ export class GoogleSheetsService {
   private static getGvizJsonUrl(): string {
     const sheet = this.sanitizeSheetName(SHEET_NAME);
     return GOOGLE_SHEETS_URLS.getGvizJsonUrl(GOOGLE_SHEET_ID, sheet);
+  }
+
+  private static withCors(url: string): string {
+    const input = (url ?? '').toString();
+    if (!input.trim() || input.length > 2048) return input;
+    if (Platform.OS === 'web') {
+      const proxy = 'https://cors.isomorphic-git.org/';
+      if (input.startsWith('http://') || input.startsWith('https://')) {
+        return proxy + input;
+      }
+      return proxy + 'https://' + input.replace(/^\/+/, '');
+    }
+    return input;
   }
 
   static async fetchAppointments(): Promise<{ appointments: Appointment[], patients: Patient[] }> {
@@ -85,7 +99,7 @@ export class GoogleSheetsService {
   }
 
   private static async fetchWithGvizJSON(): Promise<any[][] | null> {
-    const url = this.getGvizJsonUrl();
+    const url = this.withCors(this.getGvizJsonUrl());
     console.log('🔄 Fetching GViz JSON from:', url);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -126,13 +140,16 @@ export class GoogleSheetsService {
       console.log('🔄 Fetching CSV from:', url);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
-      const response = await fetch(url, {
+      const response = await fetch(this.withCors(url), {
         method: 'GET',
         headers: {
           Accept: 'text/csv,text/plain,*/*',
         },
         redirect: 'follow',
         signal: controller.signal,
+        credentials: 'omit',
+        mode: Platform.OS === 'web' ? 'cors' : undefined,
+        referrerPolicy: Platform.OS === 'web' ? 'no-referrer' : undefined,
       } as RequestInit);
       clearTimeout(timeoutId);
       if (!response.ok) {
@@ -435,9 +452,13 @@ export class GoogleSheetsService {
   static async testConnection(): Promise<boolean> {
     try {
       console.log('🔍 Testing public Google Sheets (CSV) connection...');
-      const url = this.getCSVUrl();
+      const url = this.withCors(this.getCSVUrl());
       console.log('🌐 Test URL:', url);
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        credentials: 'omit',
+        mode: Platform.OS === 'web' ? 'cors' : undefined,
+        referrerPolicy: Platform.OS === 'web' ? 'no-referrer' : undefined,
+      } as RequestInit);
       console.log('📡 Test response status:', res.status, res.statusText);
       if (!res.ok) return false;
       const text = await res.text();
