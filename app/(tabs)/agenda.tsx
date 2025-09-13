@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -55,6 +55,7 @@ export default function AgendaScreen() {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
   const [showNewAppointmentModal, setShowNewAppointmentModal] = useState<boolean>(false);
+  const [showCalendar, setShowCalendar] = useState<boolean>(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [newAppointment, setNewAppointment] = useState<NewAppointment>({
     patientName: '',
@@ -228,6 +229,18 @@ export default function AgendaScreen() {
     }
     setCurrentMonth(newMonth);
   };
+
+  const shiftSelectedDate = useCallback((days: number) => {
+    const [y, m, d] = selectedDate.split('-').map(Number);
+    const base = new Date(y, m - 1, d);
+    base.setDate(base.getDate() + days);
+    const yyyy = base.getFullYear();
+    const mm = String(base.getMonth() + 1).padStart(2, '0');
+    const dd = String(base.getDate()).padStart(2, '0');
+    const next = `${yyyy}-${mm}-${dd}`;
+    setSelectedDate(next);
+    setCurrentMonth(new Date(yyyy, base.getMonth(), 1));
+  }, [selectedDate]);
 
   const handleCreateAppointment = () => {
     if (!newAppointment.patientName.trim() || !newAppointment.treatment.trim()) {
@@ -415,6 +428,34 @@ export default function AgendaScreen() {
         style={styles.content} 
         showsVerticalScrollIndicator={false}
       >
+        <View style={styles.pageTitleRow}>
+          <Text style={styles.pageTitleText} testID="agenda-title">
+            Agenda - {formatDate(selectedDate)}
+          </Text>
+        </View>
+
+        <View style={styles.dateSelectorCard}>
+          <Text style={styles.selectorLabel}>Seleccionar Fecha</Text>
+          <View style={styles.dateSelectorRow}>
+            <TouchableOpacity onPress={() => shiftSelectedDate(-1)} style={styles.dayShiftBtn} testID="agenda-prev-day">
+              <ChevronLeft size={18} color={Colors.light.primary} />
+            </TouchableOpacity>
+            <TextInput
+              style={styles.dateInput}
+              value={selectedDate}
+              onChangeText={(text) => {
+                const ok = /^\d{4}-\d{2}-\d{2}$/.test(text);
+                if (ok) setSelectedDate(text);
+              }}
+              placeholder={new Date().toISOString().split('T')[0]}
+              testID="agenda-date-input"
+            />
+            <TouchableOpacity onPress={() => shiftSelectedDate(1)} style={styles.dayShiftBtn} testID="agenda-next-day">
+              <ChevronRight size={18} color={Colors.light.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
         {/* Calendar Header */}
         <View style={styles.calendarHeader}>
           <TouchableOpacity onPress={() => navigateMonth('prev')} style={styles.monthNavButton}>
@@ -429,6 +470,7 @@ export default function AgendaScreen() {
         </View>
 
         {/* Modern Calendar Grid */}
+        {showCalendar && (
         <View style={styles.calendar}>
           {/* Week days header - Starting with Monday */}
           <View style={styles.weekDaysHeader}>
@@ -473,6 +515,7 @@ export default function AgendaScreen() {
             })}
           </View>
         </View>
+        )}
 
         {/* Selected Date Section */}
         <View style={styles.selectedDateSection}>
@@ -866,6 +909,51 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  pageTitleRow: {
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 8,
+  },
+  pageTitleText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: Colors.light.text,
+  },
+  dateSelectorCard: {
+    backgroundColor: Colors.light.surface,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    padding: 16,
+  },
+  selectorLabel: {
+    fontSize: 14,
+    color: Colors.light.tabIconDefault,
+    marginBottom: 8,
+  },
+  dateSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dayShiftBtn: {
+    padding: 10,
+    borderRadius: 8,
+    backgroundColor: Colors.light.background,
+  },
+  dateInput: {
+    flex: 1,
+    backgroundColor: Colors.light.surface,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: Colors.light.text,
   },
   calendarHeader: {
     flexDirection: 'row',
