@@ -1,5 +1,6 @@
 import type { GoogleSheetsAppointment, Appointment, Patient, AppointmentSyncInfo } from '@/types';
 import { GOOGLE_CONFIG, GOOGLE_SHEETS_URLS } from '@/constants/googleConfig';
+import { Platform } from 'react-native';
 
 const { GOOGLE_SHEET_ID, SHEET_NAME } = GOOGLE_CONFIG;
 
@@ -13,6 +14,10 @@ export class GoogleSheetsService {
   private static getCSVUrl(): string {
     const sheet = this.sanitizeSheetName(SHEET_NAME);
     return GOOGLE_SHEETS_URLS.getGvizCsvUrl(GOOGLE_SHEET_ID, sheet);
+  }
+
+  private static getExportCSVUrl(): string {
+    return GOOGLE_SHEETS_URLS.getExportCsvUrl(GOOGLE_SHEET_ID, '0');
   }
 
   private static getPublicCSVUrl(): string {
@@ -29,21 +34,35 @@ export class GoogleSheetsService {
     try {
       let data: any[][] | null = null;
 
-      // Method 1: CSV via GViz (public, no auth)
-      try {
-        console.log('📡 Attempting GViz CSV (public)...');
-        data = await this.fetchWithCSV();
-        if (data && data.length > 0) {
-          console.log('✅ GViz CSV successful');
+      const preferJSONFirst = Platform.OS === 'web';
+
+      if (preferJSONFirst) {
+        try {
+          console.log('📡 Attempting GViz JSON first (web-friendly)...');
+          data = await this.fetchWithGvizJSON();
+          if (data && data.length > 0) {
+            console.log('✅ GViz JSON successful');
+          }
+        } catch (jsonFirstError) {
+          console.log('❌ GViz JSON first attempt failed:', (jsonFirstError as Error).message);
         }
-      } catch (csvError) {
-        console.log('❌ GViz CSV failed:', (csvError as Error).message);
       }
 
-      // Method 2: GViz JSON parse (public) fallback
       if (!data || data.length === 0) {
         try {
-          console.log('📡 Attempting GViz JSON (public) fallback...');
+          console.log('📡 Attempting CSV (public)...');
+          data = await this.fetchWithCSV();
+          if (data && data.length > 0) {
+            console.log('✅ CSV method successful');
+          }
+        } catch (csvError) {
+          console.log('❌ CSV method failed:', (csvError as Error).message);
+        }
+      }
+
+      if (!data || data.length === 0 && !preferJSONFirst) {
+        try {
+          console.log('📡 Attempting GViz JSON fallback...');
           data = await this.fetchWithGvizJSON();
           if (data && data.length > 0) {
             console.log('✅ GViz JSON fallback successful');
@@ -89,12 +108,15 @@ export class GoogleSheetsService {
     console.log('🔄 Fetching GViz JSON from:', url);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const jsonHeaders: Record<string, string> = {
+      'Accept': 'text/plain,*/*',
+    };
+    if (Platform.OS !== 'web') {
+      jsonHeaders['User-Agent'] = 'RubioGarciaApp/1.0';
+    }
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Accept': 'text/plain,*/*',
-        'User-Agent': 'RubioGarciaApp/1.0'
-      },
+      headers: jsonHeaders,
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -128,20 +150,34 @@ export class GoogleSheetsService {
       console.log('🔄 Fetching CSV from:', csvUrl);
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 15000);
+      const csvHeaders: Record<string, string> = {
+        'Accept': 'text/csv,text/plain,*/*',
+      };
+      if (Platform.OS !== 'web') {
+        csvHeaders['User-Agent'] = 'RubioGarciaApp/1.0';
+      }
       const response = await fetch(csvUrl, {
         method: 'GET',
-        headers: {
-          'Accept': 'text/csv,text/plain,*/*',
-          'User-Agent': 'RubioGarciaApp/1.0'
-        },
+        headers: csvHeaders,
         signal: controller.signal
       });
       clearTimeout(timeoutId);
       if (!response.ok) {
         throw new Error(`CSV fetch failed: ${response.status} ${response.statusText}`);
       }
-      const csvText = await response.text();
-      console.log('📊 CSV response length:', csvText.length, 'characters');
+      let csvText = await response.text();
+      console.log('📊 CSV response length (gviz):', csvText.length, 'characters');
+      if (!csvText.trim()) {
+        console.log('⚠️ Empty CSV from gviz, trying export CSV endpoint...');
+        const exportUrl = this.getExportCSVUrl();
+        console.log('🔄 Fetching export CSV from:', exportUrl);
+        const exportRes = await fetch(exportUrl, { method: 'GET' });
+        if (!exportRes.ok) {
+          throw new Error(`Export CSV fetch failed: ${exportRes.status} ${exportRes.statusText}`);
+        }
+        csvText = await exportRes.text();
+        console.log('📊 CSV response length (export):', csvText.length, 'characters');
+      }
       if (!csvText.trim()) {
         throw new Error('Empty CSV response');
       }
@@ -181,11 +217,12 @@ export class GoogleSheetsService {
   }
 
   private static parseCSVLine(line: string): string[] {
+    const sanitized = (line ?? '').toString();
     const result: string[] = [];
     let current = '';
     let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
+    for (let i = 0; i < sanitized.length; i++) {
+      const char = sanitized[i];
       if (char === '"') {
         if (inQuotes && line[i + 1] === '"') {
           current += '"';
@@ -428,7 +465,7 @@ export class GoogleSheetsService {
       console.log('🔍 Testing public Google Sheets (CSV) connection...');
       const url = this.getCSVUrl();
       console.log('🌐 Test URL:', url);
-      const res = await fetch(url);
+      const res = await fetch(url, { method: 'GET' });
       console.log('📡 Test response status:', res.status, res.statusText);
       if (!res.ok) return false;
       const text = await res.text();
