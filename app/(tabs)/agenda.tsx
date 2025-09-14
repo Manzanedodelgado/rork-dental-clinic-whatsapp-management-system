@@ -58,6 +58,35 @@ const TIME_SLOTS = [
   '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30'
 ];
 
+const toDisplayDate = (key: string): string => {
+  const parts = key.split('-');
+  if (parts.length !== 3) return key;
+  const [y, m, d] = parts;
+  return `${d}/${m}/${y}`;
+};
+
+const toKeyDate = (display: string): string | null => {
+  const trimmed = display.trim();
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(trimmed);
+  if (!match) return null;
+  let dd = match[1];
+  let mm = match[2];
+  const yyyy = match[3];
+  dd = dd.padStart(2, '0');
+  mm = mm.padStart(2, '0');
+  const day = Number(dd);
+  const month = Number(mm);
+  const year = Number(yyyy);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const dt = new Date(year, month - 1, day, 12, 0, 0);
+  if (
+    dt.getFullYear() !== year ||
+    dt.getMonth() + 1 !== month ||
+    dt.getDate() !== day
+  ) return null;
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 export default function AgendaScreen() {
   // Always call hooks in the same order
   const insets = useSafeAreaInsets();
@@ -546,12 +575,14 @@ export default function AgendaScreen() {
             </TouchableOpacity>
             <TextInput
               style={styles.dateInput}
-              value={selectedDate}
+              value={toDisplayDate(selectedDate)}
               onChangeText={(text) => {
-                const ok = /^\d{4}-\d{2}-\d{2}$/.test(text);
-                if (ok) setSelectedDate(text);
+                const key = toKeyDate(text);
+                if (key) setSelectedDate(key);
               }}
-              placeholder={dateToKey(new Date())}
+              placeholder={toDisplayDate(dateToKey(new Date()))}
+              keyboardType="numeric"
+              maxLength={10}
               testID="agenda-date-input"
             />
             <TouchableOpacity onPress={() => shiftSelectedDate(1)} style={styles.dayShiftBtn} testID="agenda-next-day">
