@@ -55,28 +55,8 @@ const TIME_SLOTS = [
   '08:00','08:30',
   '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
   '12:00', '12:30', '13:00', '13:30', '14:00', '14:30',
-  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30',
-] as const;
-
-type TimeSlot = typeof TIME_SLOTS[number] | string;
-
-const normalizeTime = (input?: string | null): string => {
-  if (!input) return 'Sin hora';
-  try {
-    const cleaned = input.replace(/[hH\.]/g, ':').replace(/\s/g, '');
-    const match = cleaned.match(/^(\d{1,2})(?::?(\d{1,2}))?$/);
-    if (!match) return 'Sin hora';
-    const hh = Math.max(0, Math.min(23, parseInt(match[1] ?? '0', 10)));
-    const mmRaw = match[2] ?? '00';
-    const mm = Math.max(0, Math.min(59, parseInt(mmRaw, 10)));
-    const h = String(hh).padStart(2, '0');
-    const m = String(mm).padStart(2, '0');
-    return `${h}:${m}`;
-  } catch (e) {
-    console.log('normalizeTime error for', input, e);
-    return 'Sin hora';
-  }
-};
+  '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30'
+];
 
 const toDisplayDate = (key: string): string => {
   const parts = key.split('-');
@@ -345,29 +325,15 @@ export default function AgendaScreen() {
   const appointmentsByTime = useMemo(() => {
     const map: Record<string, Appointment[]> = {};
     TIME_SLOTS.forEach(t => { map[t] = []; });
-
     selectedDateAppointments.forEach(a => {
-      const norm = normalizeTime(a.time ?? '');
-      if (!map[norm]) map[norm] = [];
-      map[norm].push(a);
+      const t = a.time ?? '';
+      if (map[t]) map[t].push(a); else {
+        if (!map['otros']) map['otros'] = [] as unknown as Appointment[];
+        map['otros'].push(a);
+      }
     });
-
-    Object.keys(map).forEach(key => {
-      map[key] = map[key].sort((a, b) => (a.patientName ?? a.nombre ?? '').localeCompare(b.patientName ?? b.nombre ?? ''));
-    });
-
     return map;
   }, [selectedDateAppointments]);
-
-  const orderedSlots: string[] = useMemo(() => {
-    const dynamicKeys = Object.keys(appointmentsByTime).filter(k => (TIME_SLOTS as readonly string[]).indexOf(k) === -1 && k !== 'Sin hora');
-    const withKnown = [...TIME_SLOTS];
-    const extrasSorted = dynamicKeys.sort((a, b) => a.localeCompare(b));
-    const result = [...withKnown, ...extrasSorted];
-    if (appointmentsByTime['Sin hora']?.length) result.push('Sin hora');
-    console.log('🕒 Ordered time slots:', result);
-    return result;
-  }, [appointmentsByTime]);
 
   const handleCreateAppointment = () => {
     if (!newAppointment.patientName.trim() || !newAppointment.treatment.trim()) {
@@ -735,7 +701,7 @@ export default function AgendaScreen() {
 
               <View style={styles.timelineContainer}>
                 <View style={styles.timelineBar} />
-                {orderedSlots.map((slot) => {
+                {TIME_SLOTS.map((slot) => {
                   const items = appointmentsByTime[slot] ?? [];
                   return (
                     <View key={slot} style={styles.timelineRow}>
@@ -754,7 +720,7 @@ export default function AgendaScreen() {
                                   <View style={styles.appointmentTime}>
                                     <View style={[styles.timeIndicator, { backgroundColor: getStatusColor(appointment.status) }]} />
                                     <Clock size={16} color={Colors.light.text} />
-                                    <Text style={styles.appointmentTimeText}>{normalizeTime(appointment.time ?? '')}</Text>
+                                    <Text style={styles.appointmentTimeText}>{appointment.time || 'Sin hora'}</Text>
                                     {appointment.duration ? (
                                       <Text style={styles.appointmentDuration}>({appointment.duration}min)</Text>
                                     ) : null}
@@ -769,7 +735,7 @@ export default function AgendaScreen() {
                                       </View>
                                     ) : null}
                                     <TouchableOpacity style={styles.editButton} onPress={() => {
-                                      if (appointment?.id?.trim() && (appointment.patientName?.trim() || appointment.nombre?.trim())) setEditingAppointment(appointment);
+                                      if (appointment?.id?.trim() && appointment.patientName?.trim()) setEditingAppointment(appointment);
                                     }}>
                                       <Edit3 size={16} color={Colors.light.tabIconDefault} />
                                     </TouchableOpacity>
@@ -781,7 +747,7 @@ export default function AgendaScreen() {
                                     <User size={18} color={Colors.light.primary} />
                                     <View style={styles.patientDetails}>
                                       <Text style={styles.appointmentPatientName}>
-                                        {(appointment.nombre ?? appointment.patientName) ?? ''} {appointment.apellidos ?? ''}
+                                        {appointment.nombre} {appointment.apellidos}
                                       </Text>
                                       {appointment.numPac ? (
                                         <Text style={styles.patientNumber}>Paciente #{appointment.numPac}</Text>
