@@ -3,7 +3,7 @@ export const GOOGLE_CONFIG = {
   GOOGLE_SHEET_ID: '1MBDBHQ08XGuf5LxVHCFhHDagIazFkpBnxwqyEQIBJrQ',
   GOOGLE_API_KEY: '',
   // Asegúrate que el nombre coincide exactamente con la pestaña de tu hoja
-  SHEET_NAME: 'Hoja1',
+  SHEET_NAME: 'Hoja 1',
   SERVICE_ACCOUNT_FILE: 'service-account-key.json',
 };
 
