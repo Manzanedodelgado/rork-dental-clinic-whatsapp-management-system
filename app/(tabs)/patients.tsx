@@ -180,7 +180,10 @@ export default function PatientsScreen() {
       <FlatList
         data={filteredPatients}
         renderItem={renderPatientItem}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item, index) => {
+          const key = item?.id || item?.phone || item?.email || `idx-${index}`;
+          return String(key);
+        }}
         style={styles.patientsList}
         contentContainerStyle={styles.patientsListContent}
         showsVerticalScrollIndicator={false}

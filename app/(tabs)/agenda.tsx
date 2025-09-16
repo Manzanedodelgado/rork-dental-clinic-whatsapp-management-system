@@ -715,7 +715,7 @@ export default function AgendaScreen() {
                           items.map((appointment, index) => {
                             const syncIndicator = getSyncIndicator(appointment);
                             return (
-                              <View key={(appointment.id ?? '') + index.toString()} style={styles.appointmentCard}>
+                              <View key={`${appointment.id || appointment.registro || appointment.patientId || 'apt'}-${index}`} style={styles.appointmentCard}>
                                 <View style={styles.appointmentHeader}>
                                   <View style={styles.appointmentTime}>
                                     <View style={[styles.timeIndicator, { backgroundColor: getStatusColor(appointment.status) }]} />
